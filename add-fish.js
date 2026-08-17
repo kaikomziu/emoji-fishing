@@ -10,7 +10,8 @@
 // 使い方②（質問形式・何も入力せず実行）:
 //   node add-fish.js
 //
-// レアリティ: common(コモン) / uncommon(アンコモン) / rare(レア) / epic(エピック) / legendary(レジェンダリー)
+// レアリティ: common(コモン) / uncommon(アンコモン) / rare(レア) / epic(エピック) / legendary(レジェンダリー) /
+//            mythic(ミシック) / celestial(セレスティアル) / cosmic(コズミック) / ultimate(アルティメット) / oopart(オーパーツ)
 //   ※ --exclusive を付けると「配布限定」になり、選んだレアリティは色・価値の基準としてのみ使われます
 
 const fs = require('fs');
@@ -19,9 +20,10 @@ const readline = require('readline');
 const { execSync } = require('child_process');
 
 const DATA_PATH = path.join(__dirname, 'js', 'data.js');
-const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'celestial', 'cosmic', 'ultimate', 'oopart'];
 const RARITY_LABELS = {
   common: 'コモン', uncommon: 'アンコモン', rare: 'レア', epic: 'エピック', legendary: 'レジェンダリー',
+  mythic: 'ミシック', celestial: 'セレスティアル', cosmic: 'コズミック', ultimate: 'アルティメット', oopart: 'オーパーツ',
 };
 
 function ask(rl, question) {
@@ -68,7 +70,7 @@ async function main() {
     if (!rarity) {
       console.log('\nレアリティを選んでください（色・価値の基準になります）:');
       RARITIES.forEach((r, i) => console.log(`  ${i + 1}. ${RARITY_LABELS[r]}`));
-      const idx = await ask(rl, '番号を入力 (1-5): ');
+      const idx = await ask(rl, `番号を入力 (1-${RARITIES.length}): `);
       rarity = RARITIES[Number(idx) - 1];
     }
     if (!process.argv.includes('--exclusive') && !process.argv.includes('--no-exclusive')) {

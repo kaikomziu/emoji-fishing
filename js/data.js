@@ -1,19 +1,21 @@
 // ===== 絵文字フィッシング -データ定義- =====
 
-// レアリティ定義（低→高）。上位4つ（ミシック〜アルティメット）は超激レアの追加ティア。
+// レアリティ定義（低→高）。上位5つ（ミシック〜オーパーツ）は超激レアの追加ティア。
+// noBoost: true のレアリティは幸運のお守り・竿レベルの補正を一切受けない固定確率（ショップ育成では上げられない）。
 const RARITIES = [
-  { id: 'common',    name: 'コモン',         color: '#9ca3af', baseWeight: 62,     value: 1 },
-  { id: 'uncommon',  name: 'アンコモン',     color: '#34d399', baseWeight: 24,     value: 3 },
-  { id: 'rare',      name: 'レア',           color: '#60a5fa', baseWeight: 9,      value: 9 },
-  { id: 'epic',      name: 'エピック',       color: '#a78bfa', baseWeight: 4,      value: 25 },
-  { id: 'legendary', name: 'レジェンダリー', color: '#fbbf24', baseWeight: 1,      value: 70 },
-  { id: 'mythic',    name: 'ミシック',       color: '#e11d48', baseWeight: 0.3,    value: 200 },
-  { id: 'celestial', name: 'セレスティアル', color: '#38bdf8', baseWeight: 0.05,   value: 800 },
-  { id: 'cosmic',    name: 'コズミック',     color: '#a21caf', baseWeight: 0.006,  value: 4000 },
-  { id: 'ultimate',  name: 'アルティメット', color: '#facc15', baseWeight: 0.0004, value: 30000 },
+  { id: 'common',    name: 'コモン',         color: '#9ca3af', baseWeight: 62,      value: 1 },
+  { id: 'uncommon',  name: 'アンコモン',     color: '#34d399', baseWeight: 24,      value: 3 },
+  { id: 'rare',      name: 'レア',           color: '#60a5fa', baseWeight: 9,       value: 9 },
+  { id: 'epic',      name: 'エピック',       color: '#a78bfa', baseWeight: 4,       value: 25 },
+  { id: 'legendary', name: 'レジェンダリー', color: '#fbbf24', baseWeight: 1,       value: 70 },
+  { id: 'mythic',    name: 'ミシック',       color: '#e11d48', baseWeight: 0.3,     value: 200 },
+  { id: 'celestial', name: 'セレスティアル', color: '#38bdf8', baseWeight: 0.05,    value: 800 },
+  { id: 'cosmic',    name: 'コズミック',     color: '#a21caf', baseWeight: 0.006,   value: 4000 },
+  { id: 'ultimate',  name: 'アルティメット', color: '#facc15', baseWeight: 0.0004,  value: 30000 },
+  { id: 'oopart',    name: 'オーパーツ',     color: '#18181b', baseWeight: 0.00001, value: 200000, noBoost: true },
 ];
 
-// レアリティごとの絵文字プール（全320種、魚以外のガラクタ・お宝も釣れる）
+// レアリティごとの絵文字プール（全325種、魚以外のガラクタ・お宝も釣れる）
 const FISH_POOL = {
   common: ['🐟', '🐠', '🦐', '🦀', '🐌', '🐚', '🦆', '🐸', '👢', '🥾', '👞', '👟', '🩴', '🧦', '🥫', '🗑️', '🛞', '🪣', '🧴', '🧻', '🥤', '🍾', '🧃', '🧵', '🧶', '🪡', '🔩', '🪤', '🧊', '🧂', '🍌', '🥡', '🧹', '🪒', '🧽', '🪥', '🧺', '🎽', '🩳', '🧢'],
   uncommon: ['🐡', '🦑', '🐙', '🦞', '🦢', '🐍', '🦎', '🪸', '🔧', '⚙️', '🪛', '🧲', '🔋', '🪫', '💡', '📎', '🖇️', '🧨', '🎈', '🪀', '🪁', '🎏', '🕸️', '🪴', '🌿', '🍀', '🍄', '🌾', '🥀', '🌵', '🪵', '🪨', '🧱', '🪜', '🧯', '🪠', '🔑', '🗝️', '🪪', '📜'],
@@ -24,6 +26,7 @@ const FISH_POOL = {
   celestial: ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘', '🌚', '🌝', '🌛', '🌜', '⛅', '☁️', '⛈️', '🌤️', '🌥️', '🌦️', '🌧️', '🌨️', '🌩️', '🌫️', '🌬️', '🛰️', '🚀', '🌎', '🌏', '🎑', '🌡️', '⛱️', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑'],
   cosmic: ['♒', '♓', '⛎', '☯️', '☮️', '⚛️', '♾️', '🔯', '🕉️', '☪️', '✡️', '☦️', '🉐', '💠', '🔰', '㊙️', '㊗️', '🈴', '🈵', '🈶', '🈚', '🈸', '🈺', '🈷️', '🆚', '🆒', '🆓', '🆕', '🆖', '🈲'],
   ultimate: ['🥷', '🧌', '🫅', '🦸‍♀️', '🦹‍♂️', '🧛‍♀️', '🧟‍♂️', '🧝‍♀️', '🧚‍♂️', '🧞‍♀️'],
+  oopart: ['⚜️', '🛐', '🕎', '🪆', '🕊️'],
 };
 
 // 図鑑用のフレーバー名
@@ -117,6 +120,8 @@ const FISH_NAMES = {
   '🥷': '影の忍者', '🧌': '伝説のトロル', '🫅': '王者の風格', '🦸‍♀️': '守護のヒロイン',
   '🦹‍♂️': '闇の覇者', '🧛‍♀️': '吸血鬼の女王', '🧟‍♂️': '不死の亡者', '🧝‍♀️': 'エルフの賢者',
   '🧚‍♂️': '妖精王', '🧞‍♀️': '願いの精霊王',
+  // oopart（運・レベルの影響を受けない固定確率の最上位ティア）
+  '⚜️': '王家の紋章', '🛐': '祈りの聖域', '🕎': '古代の燭台', '🪆': '入れ子の秘宝', '🕊️': '天啓の使者',
 };
 
 // 全絵文字リスト（図鑑表示用、レアリティ順）。図鑑達成率(%)の分母もこれ。
@@ -156,6 +161,8 @@ function getRodStats(level) {
 function getWeightedRarities(luckLevel, rodLevel) {
   const boost = luckLevel * 1.8 + rodLevel * 0.6; // 運が主、竿も少し寄与
   return RARITIES.map((r, i) => {
+    // noBoost指定のレアリティ（オーパーツ等）は幸運・竿の補正を一切受けない固定確率
+    if (r.noBoost) return { ...r, weight: r.baseWeight };
     // 上位レアリティほどboostの恩恵を大きく受ける／コモンほど減衰
     const factor = i === 0 ? -boost * 1.1 : boost * (i * 0.9);
     // 下限は極小値に設定（ミシック以上のbaseWeightが本来の激レアさを保てるように）
@@ -192,7 +199,11 @@ const REBORN_CONFIG = {
 
 // リボーンに必要なレアリティ（回数を重ねるほど要求が上がり、レジェンダリーで頭打ち）
 function rebornRequiredRarity(rebornCount) {
-  const idx = Math.min(2 + rebornCount, RARITIES.length - 1); // rare→epic→legendary
+  // 「ultimate」より上（オーパーツ等、noBoost指定の超激レア）は入手が現実的でないため、
+  // リボーン要求の上限には含めない（将来レアリティを追加しても影響しない）
+  const capIdx = RARITIES.findIndex(r => r.id === 'ultimate');
+  const maxIdx = capIdx >= 0 ? capIdx : RARITIES.length - 1;
+  const idx = Math.min(2 + rebornCount, maxIdx); // rare→epic→legendary→…→ultimateで頭打ち
   return RARITIES[idx];
 }
 
@@ -262,8 +273,10 @@ const ACHIEVEMENTS = [
 ];
 
 // 更新履歴
-const VERSION = '2.0.0';
+const VERSION = '2.1.1';
 const CHANGELOG = [
+  { version: '2.1.1', date: '2026-08-17', notes: ['管理者の絵文字プレゼントで「配布限定キャラ」が選びにくかった問題を修正。プルダウンから直接「🎁 配布限定キャラから選ぶ」を選べるように'] },
+  { version: '2.1.0', date: '2026-08-17', notes: ['最上位レアリティ「オーパーツ」を追加。幸運・竿レベルの補正を一切受けない完全固定確率で、自動釣りを何日回しても出るかどうかというレベルの超激レア', 'アルティメットが育成が進むほど出やすくなりすぎていた点を調整（従来のレアリティは引き続き運・竿の影響を受けます）'] },
   { version: '2.0.0', date: '2026-08-17', notes: ['新レアリティを4段階追加（ミシック・セレスティアル・コズミック・アルティメット）。最上位「アルティメット」は約15万匹に1匹という超激レア', '釣れる絵文字を200種→320種に大幅増加', 'ホームに手動売却機能を追加。絵文字を選んで個数を指定してコインに変換できます'] },
   { version: '1.9.0', date: '2026-08-17', notes: ['大量に絵文字を持っているとホームが重くなる問題を軽量化（同じ絵文字はまとめて1枚のカードで表示するように）', '設定（⚡ボタン、管理者とは別）に「軽量モード」を追加。演出アニメーションを減らせます', '設定に「自動売却」を追加。指定したレアリティは釣った瞬間にコインへ自動で変換されます（管理者からのプレゼントは対象外）'] },
   { version: '1.8.3', date: '2026-08-17', notes: ['新しい配布限定キャラ「🐵 サル」を追加（管理者パネルから配布可能）'] },

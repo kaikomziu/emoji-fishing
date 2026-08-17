@@ -501,7 +501,8 @@ function renderAdminPanel() {
       <label class="admin-label">🎁 絵文字プレゼント（任意）</label>
       <select id="broadcast-gift-rarity">
         <option value="">配布しない</option>
-        ${RARITIES.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+        ${EXCLUSIVE_FISH.length ? '<option value="__exclusive__">🎁 配布限定キャラから選ぶ</option>' : ''}
+        ${RARITIES.map(r => `<option value="${r.id}">${r.name}から選ぶ</option>`).join('')}
       </select>
       <select id="broadcast-gift-emoji" style="margin-top:6px; display:none;"></select>
       <select id="broadcast-gift-mutation" style="margin-top:6px; display:none;">
@@ -652,12 +653,16 @@ function updateGiftEmojiOptions() {
     mutationSelect.style.display = 'none';
     return;
   }
-  const pool = FISH_POOL[rarityId] || [];
-  const exclusives = EXCLUSIVE_FISH.filter(f => f.rarityId === rarityId).map(f => f.emoji);
-  const normalOptions = pool.map(e => `<option value="${e}">${e} ${FISH_NAMES[e] || ''}</option>`).join('');
-  const exclusiveOptions = exclusives.map(e => `<option value="${e}">🎁限定 ${e} ${FISH_NAMES[e] || ''}</option>`).join('');
-  emojiSelect.innerHTML = normalOptions +
-    (exclusives.length ? `<optgroup label="配布限定（釣りでは出ません）">${exclusiveOptions}</optgroup>` : '');
+  if (rarityId === '__exclusive__') {
+    // 配布限定キャラを独立した選択肢として直接一覧表示する
+    emojiSelect.innerHTML = EXCLUSIVE_FISH.map(f => {
+      const r = rarityById(f.rarityId);
+      return `<option value="${f.emoji}">${f.emoji} ${FISH_NAMES[f.emoji] || ''}（${r.name}相当）</option>`;
+    }).join('');
+  } else {
+    const pool = FISH_POOL[rarityId] || [];
+    emojiSelect.innerHTML = pool.map(e => `<option value="${e}">${e} ${FISH_NAMES[e] || ''}</option>`).join('');
+  }
   emojiSelect.style.display = '';
   mutationSelect.style.display = '';
 }
@@ -674,9 +679,15 @@ function sendBroadcast() {
   if (giftRarityId) {
     const emoji = document.getElementById('broadcast-gift-emoji').value;
     const mutationId = document.getElementById('broadcast-gift-mutation').value;
-    const rarity = RARITIES.find(r => r.id === giftRarityId);
+    // 「配布限定」を選んだ場合は、そのキャラ自身が持つレアリティ（色・価値の基準）を使う
+    let actualRarityId = giftRarityId;
+    if (giftRarityId === '__exclusive__') {
+      const exFish = EXCLUSIVE_FISH.find(f => f.emoji === emoji);
+      actualRarityId = exFish ? exFish.rarityId : 'common';
+    }
+    const rarity = RARITIES.find(r => r.id === actualRarityId);
     const mutation = mutationById(mutationId);
-    gift = { emoji, rarityId: giftRarityId, value: Math.round(rarity.value * mutation.mult), mutationId };
+    gift = { emoji, rarityId: actualRarityId, value: Math.round(rarity.value * mutation.mult), mutationId };
     giftId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   }
 

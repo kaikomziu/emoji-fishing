@@ -122,6 +122,21 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
   100% { background-position: 200% 50%; }
 }
 
+/* オーパーツ専用の特別演出（本当の最上位、虹×黒の特別枠） */
+.rarity-oopart {
+  background: linear-gradient(135deg, #18181b, #3b0764, #18181b, #7c2d92, #18181b);
+  background-size: 300% 300%;
+  animation: pop 0.35s ease, oopart-shimmer 3s linear infinite;
+  box-shadow: 0 0 16px 4px rgba(250, 204, 21, 0.8) !important;
+  color: #fff;
+}
+.rarity-oopart .fish-meta { color: #e5e7eb; }
+@keyframes oopart-shimmer {
+  0% { background-position: 0% 50%; box-shadow: 0 0 16px 4px rgba(250, 204, 21, 0.8); }
+  50% { background-position: 200% 50%; box-shadow: 0 0 22px 6px rgba(236, 72, 153, 0.8); }
+  100% { background-position: 0% 50%; box-shadow: 0 0 16px 4px rgba(250, 204, 21, 0.8); }
+}
+
 /* 図鑑 */
 .dex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
 .dex-cell {
@@ -265,6 +280,11 @@ body.light-mode .theme-card {
 body.light-mode .rarity-ultimate {
   animation: none !important;
   background: #fef3c7 !important;
+  box-shadow: 0 0 0 2px #facc15 !important;
+}
+body.light-mode .rarity-oopart {
+  animation: none !important;
+  background: #18181b !important;
   box-shadow: 0 0 0 2px #facc15 !important;
 }
 body.light-mode .fish-card.mutant,
