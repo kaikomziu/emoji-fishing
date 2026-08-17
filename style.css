@@ -154,6 +154,52 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 .changelog-date { font-weight: 400; color: var(--sub); font-size: 0.78rem; }
 .changelog-entry ul { margin: 4px 0 0 18px; font-size: 0.85rem; }
 
+/* イベントバナー（管理者ブロードキャスト） */
+#event-banner {
+  display: none; position: sticky; top: 0; z-index: 40;
+  background: linear-gradient(90deg, #f59e0b, #ec4899);
+  color: #fff; text-align: center; font-weight: 700; font-size: 0.85rem;
+  padding: 8px 12px;
+}
+#event-banner.show { display: block; }
+
+/* ランキング */
+.nickname-row { display: flex; gap: 8px; margin: 10px 0; }
+.nickname-row input {
+  flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 0.9rem;
+}
+.rank-cat-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.rank-cat-btn {
+  border: none; border-radius: 999px; padding: 6px 12px; font-size: 0.78rem; font-weight: 700;
+  background: #e5f2f8; color: var(--sea-dark); cursor: pointer;
+}
+.rank-cat-btn.active { background: var(--sea); color: #fff; }
+.ranking-list { display: flex; flex-direction: column; gap: 6px; }
+.rank-row {
+  display: flex; align-items: center; gap: 10px; background: var(--card-bg);
+  border-radius: 10px; padding: 8px 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); font-size: 0.88rem;
+}
+.rank-row.me { border: 2px solid var(--accent); font-weight: 700; }
+.rank-medal { width: 28px; text-align: center; font-weight: 700; }
+.rank-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-value { color: var(--sea-dark); font-weight: 700; }
+
+/* 管理者メニュー */
+.admin-gear-btn {
+  border: none; background: none; color: var(--sub); font-size: 1rem; cursor: pointer;
+  margin-left: 8px; vertical-align: middle;
+}
+.admin-label { display: block; font-size: 0.78rem; color: var(--sub); margin: 10px 0 4px; font-weight: 700; }
+#admin-modal-body input, #admin-modal-body textarea, #admin-modal-body select {
+  width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 0.9rem; font-family: inherit;
+}
+.admin-send-btn { width: 100%; margin-top: 14px; }
+.admin-logout-btn {
+  width: 100%; margin-top: 8px; border: none; background: none; color: var(--sub);
+  text-decoration: underline; padding: 6px; cursor: pointer;
+}
+.admin-error { color: #dc2626; font-size: 0.8rem; margin-top: 8px; }
+
 /* 拠点グリッド */
 .base-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 20px; }
 .base-slot {

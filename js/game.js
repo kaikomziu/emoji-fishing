@@ -63,7 +63,8 @@ function coinsPerSec() {
 function rarityById(id) { return RARITIES.find(r => r.id === id); }
 
 function rollFish() {
-  const weighted = getWeightedRarities(state.luckLevel, state.rodLevel);
+  const luckMult = (typeof getActiveLuckMultiplier === 'function') ? getActiveLuckMultiplier() : 1;
+  const weighted = getWeightedRarities(state.luckLevel * luckMult, state.rodLevel);
   const total = weighted.reduce((s, r) => s + r.weight, 0);
   let roll = Math.random() * total;
   for (const r of weighted) {
@@ -322,6 +323,7 @@ function renderAll() {
   if (currentTab === 'shop') renderShop();
   if (currentTab === 'dex') renderDex();
   if (currentTab === 'achieve') renderAchievements();
+  if (currentTab === 'ranking' && typeof renderRanking === 'function') renderRanking();
 }
 
 // ---------- アクション ----------
@@ -421,6 +423,8 @@ function tick() {
         `拠点マス: ${state.slots.filter(s => s).length} / ${state.slots.length}　合計 +${cps.toLocaleString()} コイン/秒`;
     }
   }
+  if (typeof syncRanking === 'function') syncRanking(false);
+  if (typeof updateEventBanner === 'function') updateEventBanner();
 }
 
 // ---------- 更新履歴モーダル ----------
@@ -456,8 +460,14 @@ function init() {
   document.getElementById('changelog-modal').addEventListener('click', e => {
     if (e.target.id === 'changelog-modal') closeChangelog();
   });
+  document.getElementById('admin-gear-btn').addEventListener('click', openAdminModal);
+  document.getElementById('admin-close').addEventListener('click', closeAdminModal);
+  document.getElementById('admin-modal').addEventListener('click', e => {
+    if (e.target.id === 'admin-modal') closeAdminModal();
+  });
   renderAll();
   setInterval(tick, 1000);
+  if (typeof initFirebase === 'function') initFirebase();
 }
 
 document.addEventListener('DOMContentLoaded', init);
