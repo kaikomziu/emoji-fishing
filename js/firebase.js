@@ -16,7 +16,7 @@ let adminUser = null;
 let authError = null;
 
 // トレード関連
-let selectedTradeFishId = null;
+let selectedTradeGroup = null; // { emoji, mutationId }
 let pendingIncomingTrades = [];
 let outgoingTrades = [];
 let processedDeclines = new Set();
@@ -197,16 +197,21 @@ function renderTradeInventory() {
     wrap.innerHTML = '<p class="empty-msg">送れる絵文字がありません。海で釣ってこよう！</p>';
     return;
   }
-  const groups = groupFishList(state.inventory);
-  groups.forEach(g => {
-    const card = fishCard(g.sample, { count: g.count, onClick: () => selectTradeFish(g.ids[0]) });
-    if (g.ids.includes(selectedTradeFishId)) card.classList.add('selected');
+  state.inventory.forEach(g => {
+    const card = fishCard(g, { count: g.count, onClick: () => selectTradeGroup(g.emoji, g.mutationId) });
+    if (selectedTradeGroup && selectedTradeGroup.emoji === g.emoji && selectedTradeGroup.mutationId === g.mutationId) {
+      card.classList.add('selected');
+    }
     wrap.appendChild(card);
   });
 }
 
-function selectTradeFish(id) {
-  selectedTradeFishId = (selectedTradeFishId === id) ? null : id;
+function selectTradeGroup(emoji, mutationId) {
+  if (selectedTradeGroup && selectedTradeGroup.emoji === emoji && selectedTradeGroup.mutationId === mutationId) {
+    selectedTradeGroup = null;
+  } else {
+    selectedTradeGroup = { emoji, mutationId };
+  }
   renderTradeInventory();
 }
 
@@ -237,10 +242,10 @@ function loadOnlinePlayers() {
 
 function sendTradeToPlayer(targetUid, targetNickname) {
   if (IS_TEST_ENV) { flashMessage('テスト環境のためトレードは送信されません'); return; }
-  if (!selectedTradeFishId) { flashMessage('送る絵文字を選んでください'); return; }
-  const idx = state.inventory.findIndex(f => f.id === selectedTradeFishId);
-  if (idx === -1) { flashMessage('その絵文字は見つかりませんでした'); return; }
-  const fish = state.inventory[idx];
+  if (!selectedTradeGroup) { flashMessage('送る絵文字を選んでください'); return; }
+  const group = state.inventory.find(g => g.emoji === selectedTradeGroup.emoji && g.mutationId === selectedTradeGroup.mutationId);
+  if (!group || group.count <= 0) { flashMessage('その絵文字は見つかりませんでした'); return; }
+  const fish = { emoji: group.emoji, rarityId: group.rarityId, value: group.value, mutationId: group.mutationId };
   const nicknameInput = document.getElementById('nickname-input');
   const myNickname = (nicknameInput && nicknameInput.value) || '名無しの釣り人';
 
@@ -249,12 +254,12 @@ function sendTradeToPlayer(targetUid, targetNickname) {
     fromNickname: myNickname,
     toUid: targetUid,
     toNickname: targetNickname,
-    fish: { emoji: fish.emoji, rarityId: fish.rarityId, value: fish.value, mutationId: fish.mutationId },
+    fish: fish,
     status: 'pending',
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   }).then(() => {
-    state.inventory.splice(idx, 1);
-    selectedTradeFishId = null;
+    removeFromInventory(fish.emoji, fish.mutationId, 1);
+    selectedTradeGroup = null;
     state.stats.tradesSent = (state.stats.tradesSent || 0) + 1;
     checkAchievements();
     save();
@@ -305,13 +310,12 @@ function respondTrade(tradeId, accept) {
   const trade = pendingIncomingTrades.find(t => t.id === tradeId);
   if (!trade) return;
   if (accept) {
-    const item = { id: nextId(), rarityId: trade.fish.rarityId, emoji: trade.fish.emoji, value: trade.fish.value, mutationId: trade.fish.mutationId };
-    state.inventory.push(item);
+    addToInventory(trade.fish.rarityId, trade.fish.emoji, trade.fish.mutationId, trade.fish.value);
     state.stats.tradesReceived = (state.stats.tradesReceived || 0) + 1;
     checkAchievements();
     save();
     renderAll();
-    flashMessage(`🎁 ${trade.fromNickname} さんから ${item.emoji} を受け取りました！`);
+    flashMessage(`🎁 ${trade.fromNickname} さんから ${trade.fish.emoji} を受け取りました！`);
   }
   fbDb.collection('trades').doc(tradeId).update({ status: accept ? 'accepted' : 'declined' })
     .catch(err => console.warn('トレード応答エラー', err));
@@ -336,11 +340,10 @@ function listenOutgoingTrades() {
 }
 
 function returnDeclinedFish(trade) {
-  const item = { id: nextId(), rarityId: trade.fish.rarityId, emoji: trade.fish.emoji, value: trade.fish.value, mutationId: trade.fish.mutationId };
-  state.inventory.push(item);
+  addToInventory(trade.fish.rarityId, trade.fish.emoji, trade.fish.mutationId, trade.fish.value);
   save();
   renderAll();
-  flashMessage(`↩️ ${trade.toNickname} さんがトレードを断ったため ${item.emoji} が戻ってきました`);
+  flashMessage(`↩️ ${trade.toNickname} さんがトレードを断ったため ${trade.fish.emoji} が戻ってきました`);
   fbDb.collection('trades').doc(trade.id).update({ status: 'returned' }).catch(() => {});
 }
 
@@ -364,8 +367,7 @@ function renderOutgoingTrades() {
 function cancelTrade(tradeId) {
   const trade = outgoingTrades.find(t => t.id === tradeId);
   if (!trade) return;
-  const item = { id: nextId(), rarityId: trade.fish.rarityId, emoji: trade.fish.emoji, value: trade.fish.value, mutationId: trade.fish.mutationId };
-  state.inventory.push(item);
+  addToInventory(trade.fish.rarityId, trade.fish.emoji, trade.fish.mutationId, trade.fish.value);
   save();
   renderAll();
   fbDb.collection('trades').doc(tradeId).update({ status: 'cancelled' }).catch(err => console.warn(err));
@@ -391,16 +393,16 @@ function claimGift(gift, giftId) {
   if (!state.claimedGiftIds) state.claimedGiftIds = [];
   if (state.claimedGiftIds.includes(giftId)) return;
   const mutation = mutationById(gift.mutationId);
-  const item = { id: nextId(), rarityId: gift.rarityId, emoji: gift.emoji, value: gift.value, mutationId: gift.mutationId || 'none' };
-  state.inventory.push(item);
-  if (typeof recordDex === 'function') recordDex(item);
+  const mutationId = gift.mutationId || 'none';
+  addToInventory(gift.rarityId, gift.emoji, mutationId, gift.value);
+  if (typeof recordDex === 'function') recordDex({ emoji: gift.emoji, mutationId });
   state.stats.giftsReceived = (state.stats.giftsReceived || 0) + 1;
   state.claimedGiftIds.push(giftId);
   if (state.claimedGiftIds.length > 30) state.claimedGiftIds = state.claimedGiftIds.slice(-30);
   if (typeof checkAchievements === 'function') checkAchievements();
   save();
   renderAll();
-  const label = mutation && mutation.id !== 'none' ? `${mutation.badge}${item.emoji}` : item.emoji;
+  const label = mutation && mutation.id !== 'none' ? `${mutation.badge}${gift.emoji}` : gift.emoji;
   flashMessage(`🎁 管理者から ${label} をもらいました！`);
 }
 

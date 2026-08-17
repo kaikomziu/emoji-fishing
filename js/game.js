@@ -15,6 +15,9 @@ let state = {
     tradesSent: 0, tradesReceived: 0, manualSells: 0, giftsReceived: 0,
     usedAutoFish: false, usedAutoSell: false,
   },
+  // 手持ちの絵文字は「種類（絵文字＋変異）ごとの個数」で持つ。個別に1件ずつ保存すると
+  // 大量に釣った時にセーブデータが保存容量の上限を超えてしまうため。
+  // [{ emoji, rarityId, mutationId, value, count }]
   dex: {},             // 図鑑データ { emoji: { count, mutations: {golden, rainbow} } }
   achievements: {},    // { achievementId: unlockedAtTimestamp }
   unlockedThemes: ['default'],
@@ -41,7 +44,15 @@ function initSlots() {
 }
 
 function save() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (e) {
+    // 容量オーバー等でセーブに失敗しても、後続の画面更新（renderAllなど）を止めない
+    console.warn('セーブに失敗しました', e);
+    if (typeof flashMessage === 'function') {
+      flashMessage('⚠ セーブに失敗しました（保存容量の上限）。手持ちの絵文字を整理してください');
+    }
+  }
 }
 
 function load() {
@@ -59,13 +70,51 @@ function load() {
       state.autoSellRarities = Object.assign({}, defaultAutoSell, loaded.autoSellRarities || {});
     } catch (e) { console.warn('セーブデータの読み込みに失敗しました', e); }
   }
+
+  // 旧形式（絵文字1匹ごとにidを持つ配列）のインベントリを、種類ごとの個数管理形式に変換する。
+  // これをしないと大量に釣った古いセーブがそのまま巨大な配列として残り、容量オーバーが再発する。
+  if (Array.isArray(state.inventory) && state.inventory.some(it => it && typeof it.id !== 'undefined')) {
+    const merged = new Map();
+    state.inventory.forEach(it => {
+      if (!it) return;
+      const key = it.emoji + '_' + it.mutationId;
+      if (!merged.has(key)) merged.set(key, { emoji: it.emoji, rarityId: it.rarityId, mutationId: it.mutationId, value: it.value, count: 0 });
+      merged.get(key).count++;
+    });
+    state.inventory = [...merged.values()];
+  }
+
   initSlots();
   applyTheme(state.theme);
   applyLightMode(state.lightMode);
-  // idカウンタをズレなく再開できるよう最大idを調べる
+  // idカウンタをズレなく再開できるよう最大idを調べる（idを持つのは拠点スロットの個別アイテムのみ）
   let maxId = 0;
-  [...state.inventory, ...state.slots].forEach(item => { if (item && item.id > maxId) maxId = item.id; });
+  state.slots.forEach(item => { if (item && item.id > maxId) maxId = item.id; });
   uidCounter = maxId + 1;
+}
+
+// ---------- 手持ち（種類ごとの個数管理）ヘルパー ----------
+function addToInventory(rarityId, emoji, mutationId, value) {
+  const existing = state.inventory.find(g => g.emoji === emoji && g.mutationId === mutationId);
+  if (existing) {
+    existing.count++;
+  } else {
+    state.inventory.push({ emoji, rarityId, mutationId, value, count: 1 });
+  }
+}
+
+// 指定した種類をqty個まで手持ちから減らし、実際に減らせた数を返す
+function removeFromInventory(emoji, mutationId, qty) {
+  const group = state.inventory.find(g => g.emoji === emoji && g.mutationId === mutationId);
+  if (!group) return 0;
+  const removed = Math.min(qty, group.count);
+  group.count -= removed;
+  if (group.count <= 0) state.inventory = state.inventory.filter(g => g !== group);
+  return removed;
+}
+
+function countInventoryByRarity(rarityId) {
+  return state.inventory.reduce((sum, g) => g.rarityId === rarityId ? sum + g.count : sum, 0);
 }
 
 // ---------- 計算系 ----------
@@ -97,7 +146,7 @@ function catchFish() {
     const emoji = pool[Math.floor(Math.random() * pool.length)];
     const mutation = rollMutation();
     const value = Math.round(rarity.value * mutation.mult);
-    const item = { id: nextId(), rarityId: rarity.id, emoji, value, mutationId: mutation.id };
+    const item = { rarityId: rarity.id, emoji, value, mutationId: mutation.id }; // 表示・返却用（手持ちに入れる時はidは不要）
     state.stats.totalCatches++;
     if (rarity.id === 'legendary') state.stats.legendaryCatches++;
     if (rarity.id === 'mythic') state.stats.mythicCatches = (state.stats.mythicCatches || 0) + 1;
@@ -115,7 +164,7 @@ function catchFish() {
       state.stats.totalCoinsEarned += value;
       item.autoSold = true;
     } else {
-      state.inventory.push(item);
+      addToInventory(rarity.id, emoji, mutation.id, value);
     }
     caught.push(item);
   }
@@ -248,19 +297,6 @@ function fishCard(item, opts) {
   return div;
 }
 
-// 同じ絵文字＋同じ変異のアイテムをまとめて1枚のカードにする（大量所持時の描画負荷を軽減）
-function groupFishList(items) {
-  const map = new Map();
-  items.forEach(item => {
-    const key = item.emoji + '_' + item.mutationId;
-    if (!map.has(key)) map.set(key, { sample: item, count: 0, ids: [] });
-    const g = map.get(key);
-    g.count++;
-    g.ids.push(item.id);
-  });
-  return [...map.values()];
-}
-
 function getEffectiveCooldown() {
   const { cooldown } = getRodStats(state.rodLevel);
   return state.autoFish ? cooldown * 2 : cooldown;
@@ -295,9 +331,8 @@ function renderHome() {
   if (state.inventory.length === 0) {
     invWrap.innerHTML = '<p class="empty-msg">まだ手持ちの絵文字がいません。海で釣ってこよう！</p>';
   } else {
-    const groups = groupFishList(state.inventory);
-    groups.forEach(g => {
-      const card = fishCard(g.sample, { count: g.count, onClick: () => placeFish(g.ids[0]) });
+    state.inventory.forEach(g => {
+      const card = fishCard(g, { count: g.count, onClick: () => placeFishGroup(g.emoji, g.mutationId) });
       const tag = document.createElement('div');
       tag.className = 'place-tag';
       tag.textContent = g.count > 1 ? `タップで1匹設置（残り${g.count}匹）` : 'タップで設置';
@@ -307,7 +342,7 @@ function renderHome() {
       sellBtn.textContent = '💰売る';
       sellBtn.addEventListener('click', e => {
         e.stopPropagation();
-        openSellModal(g.sample.emoji, g.sample.mutationId);
+        openSellModal(g.emoji, g.mutationId);
       });
       card.appendChild(sellBtn);
       invWrap.appendChild(card);
@@ -398,7 +433,7 @@ function renderRebornCard() {
   const cost = rebornCost(rc);
   const rarity = rebornRequiredRarity(rc);
   const needCount = rebornRequiredFishCount(rc);
-  const haveCount = state.inventory.filter(f => f.rarityId === rarity.id).length;
+  const haveCount = countInventoryByRarity(rarity.id);
   const okCoins = state.coins >= cost;
   const okFish = haveCount >= needCount;
   const ready = okCoins && okFish;
@@ -424,21 +459,24 @@ function performReborn() {
   const cost = rebornCost(rc);
   const rarity = rebornRequiredRarity(rc);
   const needCount = rebornRequiredFishCount(rc);
-  const haveCount = state.inventory.filter(f => f.rarityId === rarity.id).length;
+  const haveCount = countInventoryByRarity(rarity.id);
   if (state.coins < cost || haveCount < needCount) {
     flashMessage('リボーンの条件を満たしていません');
     return;
   }
 
   // 拠点に置いてある絵文字を一旦手持ちに戻す
-  state.slots.forEach(item => { if (item) state.inventory.push(item); });
+  state.slots.forEach(item => { if (item) addToInventory(item.rarityId, item.emoji, item.mutationId, item.value); });
 
-  // 必要な絵文字を消費
+  // 必要な絵文字を消費（該当レアリティのグループから順に減らす）
   let toRemove = needCount;
-  state.inventory = state.inventory.filter(f => {
-    if (toRemove > 0 && f.rarityId === rarity.id) { toRemove--; return false; }
-    return true;
+  state.inventory.forEach(g => {
+    if (toRemove <= 0 || g.rarityId !== rarity.id) return;
+    const take = Math.min(g.count, toRemove);
+    g.count -= take;
+    toRemove -= take;
   });
+  state.inventory = state.inventory.filter(g => g.count > 0);
 
   state.coins = 0;
   state.rodLevel = 0;
@@ -546,16 +584,17 @@ function renderAll() {
 }
 
 // ---------- アクション ----------
-function placeFish(id) {
+function placeFishGroup(emoji, mutationId) {
   const idx = state.slots.findIndex(s => s === null);
   if (idx === -1) {
     flashMessage('拠点のマスが空いていません。ショップで拡張しよう！');
     return;
   }
-  const invIdx = state.inventory.findIndex(i => i.id === id);
-  if (invIdx === -1) return;
-  const [item] = state.inventory.splice(invIdx, 1);
-  state.slots[idx] = item;
+  const group = state.inventory.find(g => g.emoji === emoji && g.mutationId === mutationId);
+  if (!group) return;
+  const slotItem = { id: nextId(), rarityId: group.rarityId, emoji: group.emoji, value: group.value, mutationId: group.mutationId };
+  removeFromInventory(emoji, mutationId, 1);
+  state.slots[idx] = slotItem;
   checkAchievements();
   save();
   renderAll();
@@ -565,7 +604,7 @@ function unplaceFish(idx) {
   const item = state.slots[idx];
   if (!item) return;
   state.slots[idx] = null;
-  state.inventory.push(item);
+  addToInventory(item.rarityId, item.emoji, item.mutationId, item.value);
   save();
   renderAll();
 }
@@ -573,9 +612,9 @@ function unplaceFish(idx) {
 // ---------- 手動売却 ----------
 let sellTarget = null; // { emoji, mutationId }
 
-function getSellCandidates() {
-  if (!sellTarget) return [];
-  return state.inventory.filter(f => f.emoji === sellTarget.emoji && f.mutationId === sellTarget.mutationId);
+function getSellGroup() {
+  if (!sellTarget) return null;
+  return state.inventory.find(g => g.emoji === sellTarget.emoji && g.mutationId === sellTarget.mutationId) || null;
 }
 
 function openSellModal(emoji, mutationId) {
@@ -590,44 +629,43 @@ function closeSellModal() {
 }
 
 function renderSellModal() {
-  const candidates = getSellCandidates();
-  if (candidates.length === 0) { closeSellModal(); return; }
-  const sampleItem = candidates[0];
-  const rarity = rarityById(sampleItem.rarityId);
-  const mutation = mutationById(sampleItem.mutationId);
+  const group = getSellGroup();
+  if (!group) { closeSellModal(); return; }
+  const rarity = rarityById(group.rarityId);
+  const mutation = mutationById(group.mutationId);
   const isMutant = mutation.id !== 'none';
   const label = isMutant ? `${mutation.badge}${mutation.name}${rarity.name}` : rarity.name;
 
   document.getElementById('sell-modal-info').innerHTML = `
     <div class="sell-preview">
-      <div class="fish-emoji">${isMutant ? mutation.badge : ''}${sampleItem.emoji}</div>
-      <div>${FISH_NAMES[sampleItem.emoji] || ''}（${label}）</div>
-      <div class="sub-desc">単価 💰${sampleItem.value.toLocaleString()} ／ 所持数 ${candidates.length}匹</div>
+      <div class="fish-emoji">${isMutant ? mutation.badge : ''}${group.emoji}</div>
+      <div>${FISH_NAMES[group.emoji] || ''}（${label}）</div>
+      <div class="sub-desc">単価 💰${group.value.toLocaleString()} ／ 所持数 ${group.count}匹</div>
     </div>
   `;
 
   const input = document.getElementById('sell-qty-input');
-  input.max = candidates.length;
-  let qty = Math.max(1, Math.min(candidates.length, Number(input.value) || 1));
+  input.max = group.count;
+  let qty = Math.max(1, Math.min(group.count, Number(input.value) || 1));
   input.value = qty;
   updateSellTotal();
 }
 
 function clampSellQty() {
-  const candidates = getSellCandidates();
+  const group = getSellGroup();
   const input = document.getElementById('sell-qty-input');
   let qty = Math.floor(Number(input.value));
   if (isNaN(qty)) qty = 1;
-  qty = Math.max(1, Math.min(candidates.length, qty));
+  qty = Math.max(1, Math.min(group ? group.count : 0, qty));
   input.value = qty;
   return qty;
 }
 
 function updateSellTotal() {
-  const candidates = getSellCandidates();
-  if (candidates.length === 0) { closeSellModal(); return; }
+  const group = getSellGroup();
+  if (!group) { closeSellModal(); return; }
   const qty = clampSellQty();
-  const total = qty * candidates[0].value;
+  const total = qty * group.value;
   document.getElementById('sell-total').textContent = `合計: 💰${total.toLocaleString()}`;
 }
 
@@ -638,27 +676,19 @@ function adjustSellQty(delta) {
 }
 
 function setSellQtyMax() {
-  const input = document.getElementById('sell-qty-input');
-  input.value = getSellCandidates().length;
+  const group = getSellGroup();
+  document.getElementById('sell-qty-input').value = group ? group.count : 0;
   updateSellTotal();
 }
 
 function confirmSell() {
-  const candidates = getSellCandidates();
-  if (!sellTarget || candidates.length === 0) return;
+  const group = getSellGroup();
+  if (!sellTarget || !group) return;
   const qty = clampSellQty();
-  const unitValue = candidates[0].value;
+  const unitValue = group.value;
   const emoji = sellTarget.emoji;
-  const mutationId = sellTarget.mutationId;
 
-  let removed = 0;
-  state.inventory = state.inventory.filter(f => {
-    if (removed < qty && f.emoji === emoji && f.mutationId === mutationId) {
-      removed++;
-      return false;
-    }
-    return true;
-  });
+  const removed = removeFromInventory(sellTarget.emoji, sellTarget.mutationId, qty);
 
   const total = removed * unitValue;
   state.coins += total;
@@ -674,20 +704,44 @@ function confirmSell() {
 // 手持ち＋拠点の絵文字をまとめて価値順に並べ替え、一番価値の高いものから拠点に設置する
 function autoPlaceBest() {
   const capacity = state.slots.length;
-  const allFish = [...state.inventory, ...state.slots.filter(s => s)];
-  if (allFish.length === 0) {
+
+  // 手持ち（グループ）と拠点（個別）を種類ごとにマージ
+  const merged = new Map();
+  const addMerge = (rarityId, emoji, mutationId, value, count) => {
+    const key = emoji + '_' + mutationId;
+    if (!merged.has(key)) merged.set(key, { rarityId, emoji, mutationId, value, count: 0 });
+    merged.get(key).count += count;
+  };
+  state.inventory.forEach(g => addMerge(g.rarityId, g.emoji, g.mutationId, g.value, g.count));
+  state.slots.forEach(s => { if (s) addMerge(s.rarityId, s.emoji, s.mutationId, s.value, 1); });
+
+  if (merged.size === 0) {
     flashMessage('絵文字を持っていません。海で釣ってこよう！');
     return;
   }
-  allFish.sort((a, b) => b.value - a.value);
-  const placed = allFish.slice(0, capacity);
-  const rest = allFish.slice(capacity);
-  state.slots = state.slots.map((_, i) => placed[i] || null);
-  state.inventory = rest;
+
+  const groups = [...merged.values()].sort((a, b) => b.value - a.value);
+
+  const newSlots = [];
+  let remaining = capacity;
+  const leftover = [];
+  for (const g of groups) {
+    const take = Math.min(g.count, remaining);
+    for (let i = 0; i < take; i++) {
+      newSlots.push({ id: nextId(), rarityId: g.rarityId, emoji: g.emoji, value: g.value, mutationId: g.mutationId });
+    }
+    remaining -= take;
+    const rest = g.count - take;
+    if (rest > 0) leftover.push({ emoji: g.emoji, rarityId: g.rarityId, mutationId: g.mutationId, value: g.value, count: rest });
+  }
+  while (newSlots.length < capacity) newSlots.push(null);
+
+  state.slots = newSlots;
+  state.inventory = leftover;
   checkAchievements();
   save();
   renderAll();
-  flashMessage(`⚡ 拠点を最適化しました（${placed.length}匹配置）`);
+  flashMessage(`⚡ 拠点を最適化しました（${capacity - remaining}匹配置）`);
 }
 
 function buyUpgrade(key, cost) {
