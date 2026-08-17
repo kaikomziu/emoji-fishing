@@ -39,6 +39,7 @@
   <section id="panel-home" class="tab-panel">
     <h2>🏠 ホーム（拠点）</h2>
     <p id="base-summary" class="sub-desc"></p>
+    <button id="auto-place-btn" class="buy-btn optimize-btn">⚡ 一番良いものを自動設置</button>
     <div id="base-slots" class="base-grid"></div>
 
     <h3>手持ちの絵文字</h3>
@@ -49,6 +50,7 @@
   <section id="panel-shop" class="tab-panel">
     <h2>🛒 ショップ</h2>
     <p class="sub-desc">コインを使って釣りの性能を強化しよう</p>
+    <div id="reborn-card" class="reborn-card"></div>
     <div id="shop-list" class="shop-list"></div>
   </section>
 
@@ -76,6 +78,12 @@
     <h2>👑 ランキング</h2>
     <div id="ranking-panel-body"></div>
   </section>
+
+  <!-- トレード -->
+  <section id="panel-trade" class="tab-panel">
+    <h2>🔄 トレード</h2>
+    <div id="trade-panel-body"></div>
+  </section>
 </main>
 
 <nav class="tab-bar">
@@ -85,6 +93,7 @@
   <button class="tab-btn" data-tab="dex">📖<br>図鑑</button>
   <button class="tab-btn" data-tab="achieve">🏆<br>実績</button>
   <button class="tab-btn" data-tab="ranking">👑<br>ランキング</button>
+  <button class="tab-btn" data-tab="trade">🔄<br>トレード</button>
 </nav>
 
 <footer class="app-footer">

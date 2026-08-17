@@ -14,6 +14,7 @@ let state = {
   achievements: {},    // { achievementId: unlockedAtTimestamp }
   unlockedThemes: ['default'],
   theme: 'default',
+  rebornCount: 0,      // リボーン回数
 };
 
 let uidCounter = 1;
@@ -57,7 +58,8 @@ function load() {
 
 // ---------- 計算系 ----------
 function coinsPerSec() {
-  return state.slots.reduce((sum, s) => sum + (s ? s.value : 0), 0);
+  const base = state.slots.reduce((sum, s) => sum + (s ? s.value : 0), 0);
+  return Math.round(base * getRebornMultiplier(state.rebornCount || 0));
 }
 
 function rarityById(id) { return RARITIES.find(r => r.id === id); }
@@ -222,6 +224,8 @@ function renderHome() {
 function upgradeRow(key) {
   const def = UPGRADES[key];
   const level = key === 'rod' ? state.rodLevel : key === 'luck' ? state.luckLevel : state.baseLevel;
+  const cap = getShopLevelCap(state.rebornCount || 0);
+  const atCap = level >= cap;
   const cost = upgradeCost(def.baseCost, level, def.growth);
   const row = document.createElement('div');
   row.className = 'shop-row';
@@ -236,17 +240,81 @@ function upgradeRow(key) {
   }
   row.innerHTML = `
     <div class="shop-info">
-      <div class="shop-title">${def.name} <span class="shop-lv">Lv.${level}</span></div>
+      <div class="shop-title">${def.name} <span class="shop-lv">Lv.${level} / ${cap}</span></div>
       <div class="shop-desc">${def.desc}</div>
-      <div class="shop-effect">${effectText}</div>
+      <div class="shop-effect">${atCap ? 'レベル上限に到達（リボーンで上限アップ）' : effectText}</div>
     </div>
-    <button class="buy-btn" ${state.coins < cost ? 'disabled' : ''}>💰 ${cost.toLocaleString()}</button>
+    <button class="buy-btn" ${(atCap || state.coins < cost) ? 'disabled' : ''}>${atCap ? 'MAX' : '💰 ' + cost.toLocaleString()}</button>
   `;
-  row.querySelector('.buy-btn').addEventListener('click', () => buyUpgrade(key, cost));
+  if (!atCap) row.querySelector('.buy-btn').addEventListener('click', () => buyUpgrade(key, cost));
   return row;
 }
 
+function renderRebornCard() {
+  const el = document.getElementById('reborn-card');
+  if (!el) return;
+  const rc = state.rebornCount || 0;
+  const cost = rebornCost(rc);
+  const rarity = rebornRequiredRarity(rc);
+  const needCount = rebornRequiredFishCount(rc);
+  const haveCount = state.inventory.filter(f => f.rarityId === rarity.id).length;
+  const okCoins = state.coins >= cost;
+  const okFish = haveCount >= needCount;
+  const ready = okCoins && okFish;
+  el.innerHTML = `
+    <div class="reborn-title">🌟 リボーン <span class="shop-lv">${rc}回目</span></div>
+    <div class="reborn-desc">ショップ強化をリセットする代わりに、永続コイン倍率とレベル上限をアップします。</div>
+    <div class="reborn-stats">
+      <div>永続倍率: <b>×${getRebornMultiplier(rc).toFixed(1)}</b> → <b>×${getRebornMultiplier(rc + 1).toFixed(1)}</b></div>
+      <div>レベル上限: <b>${getShopLevelCap(rc)}</b> → <b>${getShopLevelCap(rc + 1)}</b></div>
+    </div>
+    <div class="reborn-reqs">
+      <div class="${okCoins ? 'ok' : 'ng'}">💰 コイン ${state.coins.toLocaleString()} / ${cost.toLocaleString()}</div>
+      <div class="${okFish ? 'ok' : 'ng'}">${rarity.name} の絵文字（手持ち） ${haveCount} / ${needCount}</div>
+    </div>
+    <button id="reborn-btn" class="buy-btn reborn-btn" ${ready ? '' : 'disabled'}>🌟 リボーンする（進行がリセットされます）</button>
+  `;
+  const btn = document.getElementById('reborn-btn');
+  if (btn && ready) btn.addEventListener('click', performReborn);
+}
+
+function performReborn() {
+  const rc = state.rebornCount || 0;
+  const cost = rebornCost(rc);
+  const rarity = rebornRequiredRarity(rc);
+  const needCount = rebornRequiredFishCount(rc);
+  const haveCount = state.inventory.filter(f => f.rarityId === rarity.id).length;
+  if (state.coins < cost || haveCount < needCount) {
+    flashMessage('リボーンの条件を満たしていません');
+    return;
+  }
+
+  // 拠点に置いてある絵文字を一旦手持ちに戻す
+  state.slots.forEach(item => { if (item) state.inventory.push(item); });
+
+  // 必要な絵文字を消費
+  let toRemove = needCount;
+  state.inventory = state.inventory.filter(f => {
+    if (toRemove > 0 && f.rarityId === rarity.id) { toRemove--; return false; }
+    return true;
+  });
+
+  state.coins = 0;
+  state.rodLevel = 0;
+  state.luckLevel = 0;
+  state.baseLevel = 0;
+  state.slots = [];
+  initSlots();
+  state.rebornCount = rc + 1;
+
+  checkAchievements();
+  save();
+  renderAll();
+  flashMessage(`🌟 リボーン成功！(${state.rebornCount}回目) 永続倍率 ×${getRebornMultiplier(state.rebornCount).toFixed(1)}`);
+}
+
 function renderShop() {
+  renderRebornCard();
   const wrap = document.getElementById('shop-list');
   wrap.innerHTML = '';
   wrap.appendChild(upgradeRow('rod'));
@@ -324,6 +392,7 @@ function renderAll() {
   if (currentTab === 'dex') renderDex();
   if (currentTab === 'achieve') renderAchievements();
   if (currentTab === 'ranking' && typeof renderRanking === 'function') renderRanking();
+  if (currentTab === 'trade' && typeof renderTrade === 'function') renderTrade();
 }
 
 // ---------- アクション ----------
@@ -349,6 +418,25 @@ function unplaceFish(idx) {
   state.inventory.push(item);
   save();
   renderAll();
+}
+
+// 手持ち＋拠点の絵文字をまとめて価値順に並べ替え、一番価値の高いものから拠点に設置する
+function autoPlaceBest() {
+  const capacity = state.slots.length;
+  const allFish = [...state.inventory, ...state.slots.filter(s => s)];
+  if (allFish.length === 0) {
+    flashMessage('絵文字を持っていません。海で釣ってこよう！');
+    return;
+  }
+  allFish.sort((a, b) => b.value - a.value);
+  const placed = allFish.slice(0, capacity);
+  const rest = allFish.slice(capacity);
+  state.slots = state.slots.map((_, i) => placed[i] || null);
+  state.inventory = rest;
+  checkAchievements();
+  save();
+  renderAll();
+  flashMessage(`⚡ 拠点を最適化しました（${placed.length}匹配置）`);
 }
 
 function buyUpgrade(key, cost) {
@@ -455,6 +543,7 @@ function init() {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('cast-btn').addEventListener('click', castRod);
+  document.getElementById('auto-place-btn').addEventListener('click', autoPlaceBest);
   document.getElementById('game-version').addEventListener('click', openChangelog);
   document.getElementById('changelog-close').addEventListener('click', closeChangelog);
   document.getElementById('changelog-modal').addEventListener('click', e => {

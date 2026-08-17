@@ -237,6 +237,36 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 .buy-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
 .buy-btn:disabled { background: #d1d5db; box-shadow: none; cursor: default; }
 
+/* リボーン */
+.reborn-card {
+  background: linear-gradient(135deg, #fdf4ff, #fce7f3);
+  border: 2px solid #e9d5ff; border-radius: var(--radius);
+  padding: 16px; margin-bottom: 16px;
+}
+.reborn-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+.reborn-desc { font-size: 0.78rem; color: var(--sub); margin-bottom: 10px; }
+.reborn-stats { font-size: 0.82rem; margin-bottom: 8px; display: flex; flex-direction: column; gap: 2px; }
+.reborn-reqs { font-size: 0.82rem; margin-bottom: 12px; display: flex; flex-direction: column; gap: 2px; }
+.reborn-reqs .ok { color: #16a34a; font-weight: 700; }
+.reborn-reqs .ng { color: #dc2626; }
+.reborn-btn { width: 100%; }
+
+/* ホーム最適化ボタン */
+.optimize-btn { width: 100%; margin: 10px 0 16px; }
+
+/* トレード */
+.fish-card.selected { outline: 3px solid var(--accent); transform: scale(1.03); }
+.trade-row {
+  display: flex; align-items: center; gap: 10px; background: var(--card-bg);
+  border-radius: 10px; padding: 8px 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); font-size: 0.85rem;
+}
+.trade-fish { font-size: 1.4rem; width: 32px; text-align: center; }
+.trade-info { flex: 1; }
+.trade-decline-btn {
+  border: none; background: none; color: var(--sub); text-decoration: underline;
+  font-size: 0.8rem; cursor: pointer; flex-shrink: 0;
+}
+
 /* タブバー */
 .tab-bar {
   position: fixed; bottom: 0; left: 0; right: 0;

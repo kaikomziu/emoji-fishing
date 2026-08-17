@@ -11,5 +11,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if request.auth != null && request.auth.token.email == 'sekineyuki12345@gmail.com';
     }
+    // トレード: 送信者・受信者のみ読み書きできる。作成時は自分をfromUidに設定する必要がある
+    match /trades/{tradeId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.fromUid;
+      allow update, delete: if request.auth != null &&
+        (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+    }
   }
 }
