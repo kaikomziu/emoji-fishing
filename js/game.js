@@ -17,6 +17,8 @@ let state = {
   rebornCount: 0,      // リボーン回数
   autoFish: false,     // 自動釣りON/OFF（ONの間はクールダウンが2倍になる）
   claimedGiftIds: [],  // 受け取り済みの管理者プレゼントID（重複受け取り防止）
+  lightMode: false,    // 軽量モード（ON中は演出アニメーションを減らして動作を軽くする）
+  autoSellRarities: { common: false, uncommon: false, rare: false, epic: false, legendary: false }, // レアリティごとの自動売却設定（管理者プレゼントには適用されない）
 };
 
 let uidCounter = 1;
@@ -43,15 +45,18 @@ function load() {
     try {
       const loaded = JSON.parse(raw);
       const defaultStats = state.stats;
+      const defaultAutoSell = state.autoSellRarities;
       state = Object.assign(state, loaded);
       state.stats = Object.assign({}, defaultStats, loaded.stats || {}); // 旧セーブに無いフィールドを補完
       state.unlockedThemes = loaded.unlockedThemes || ['default'];
       state.achievements = loaded.achievements || {};
       state.theme = loaded.theme || 'default';
+      state.autoSellRarities = Object.assign({}, defaultAutoSell, loaded.autoSellRarities || {});
     } catch (e) { console.warn('セーブデータの読み込みに失敗しました', e); }
   }
   initSlots();
   applyTheme(state.theme);
+  applyLightMode(state.lightMode);
   // idカウンタをズレなく再開できるよう最大idを調べる
   let maxId = 0;
   [...state.inventory, ...state.slots].forEach(item => { if (item && item.id > maxId) maxId = item.id; });
@@ -88,13 +93,21 @@ function catchFish() {
     const mutation = rollMutation();
     const value = Math.round(rarity.value * mutation.mult);
     const item = { id: nextId(), rarityId: rarity.id, emoji, value, mutationId: mutation.id };
-    state.inventory.push(item);
-    caught.push(item);
     state.stats.totalCatches++;
     if (rarity.id === 'legendary') state.stats.legendaryCatches++;
     if (mutation.id === 'golden') state.stats.goldenCatches++;
     if (mutation.id === 'rainbow') state.stats.rainbowCatches++;
     recordDex(item);
+
+    // 設定でそのレアリティが自動売却ONなら、拠点に置かず即コインに変える（管理者プレゼントは対象外）
+    if (state.autoSellRarities && state.autoSellRarities[rarity.id]) {
+      state.coins += value;
+      state.stats.totalCoinsEarned += value;
+      item.autoSold = true;
+    } else {
+      state.inventory.push(item);
+    }
+    caught.push(item);
   }
   checkAchievements();
   return caught;
@@ -134,6 +147,53 @@ function selectTheme(themeId) {
   renderAll();
 }
 
+// ---------- 表示設定（軽量モード） ----------
+function applyLightMode(enabled) {
+  document.body.classList.toggle('light-mode', !!enabled);
+}
+
+function renderSettingsModal() {
+  const checkbox = document.getElementById('light-mode-checkbox');
+  if (checkbox) checkbox.checked = !!state.lightMode;
+
+  const wrap = document.getElementById('autosell-list');
+  if (wrap) {
+    wrap.innerHTML = RARITIES.map(r => `
+      <label class="settings-toggle-row autosell-row">
+        <input type="checkbox" class="autosell-checkbox" data-rarity="${r.id}" ${state.autoSellRarities && state.autoSellRarities[r.id] ? 'checked' : ''}>
+        <span>${r.name}（💰${r.value}/匹）</span>
+      </label>
+    `).join('');
+    wrap.querySelectorAll('.autosell-checkbox').forEach(box => {
+      box.addEventListener('change', e => toggleAutoSellRarity(e.target.dataset.rarity, e.target.checked));
+    });
+  }
+}
+
+function openSettingsModal() {
+  renderSettingsModal();
+  document.getElementById('settings-modal').classList.add('show');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.remove('show');
+}
+
+function toggleAutoSellRarity(rarityId, checked) {
+  if (!state.autoSellRarities) state.autoSellRarities = {};
+  state.autoSellRarities[rarityId] = checked;
+  save();
+  const rarity = rarityById(rarityId);
+  flashMessage(checked ? `💰 ${rarity.name}を自動売却するようにしました` : `${rarity.name}の自動売却をOFFにしました`);
+}
+
+function toggleLightMode(checked) {
+  state.lightMode = checked;
+  applyLightMode(checked);
+  save();
+  flashMessage(checked ? '⚡ 軽量モードをONにしました' : '軽量モードをOFFにしました');
+}
+
 function recordDex(item) {
   if (!state.dex[item.emoji]) {
     state.dex[item.emoji] = { count: 0, mutations: { golden: 0, rainbow: 0 } };
@@ -170,9 +230,23 @@ function fishCard(item, opts) {
   div.className = 'fish-card rarity-' + item.rarityId + (isMutant ? ' mutant mutation-' + mutation.id : '');
   div.style.setProperty('--rc', isMutant ? mutation.color : rarity.color);
   const label = isMutant ? `${mutation.badge}${mutation.name}${rarity.name}` : rarity.name;
-  div.innerHTML = `<div class="fish-emoji">${isMutant ? mutation.badge : ''}${item.emoji}</div><div class="fish-meta">${label}<br>+${item.value}/秒</div>`;
+  const countBadge = (opts && opts.count > 1) ? `<div class="fish-count-badge">×${opts.count}</div>` : '';
+  div.innerHTML = `${countBadge}<div class="fish-emoji">${isMutant ? mutation.badge : ''}${item.emoji}</div><div class="fish-meta">${label}<br>+${item.value}/秒</div>`;
   if (opts && opts.onClick) div.addEventListener('click', opts.onClick);
   return div;
+}
+
+// 同じ絵文字＋同じ変異のアイテムをまとめて1枚のカードにする（大量所持時の描画負荷を軽減）
+function groupFishList(items) {
+  const map = new Map();
+  items.forEach(item => {
+    const key = item.emoji + '_' + item.mutationId;
+    if (!map.has(key)) map.set(key, { sample: item, count: 0, ids: [] });
+    const g = map.get(key);
+    g.count++;
+    g.ids.push(item.id);
+  });
+  return [...map.values()];
 }
 
 function getEffectiveCooldown() {
@@ -207,11 +281,12 @@ function renderHome() {
   if (state.inventory.length === 0) {
     invWrap.innerHTML = '<p class="empty-msg">まだ手持ちの絵文字がいません。海で釣ってこよう！</p>';
   } else {
-    state.inventory.forEach(item => {
-      const card = fishCard(item, { onClick: () => placeFish(item.id) });
+    const groups = groupFishList(state.inventory);
+    groups.forEach(g => {
+      const card = fishCard(g.sample, { count: g.count, onClick: () => placeFish(g.ids[0]) });
       const tag = document.createElement('div');
       tag.className = 'place-tag';
-      tag.textContent = 'タップで設置';
+      tag.textContent = g.count > 1 ? `タップで1匹設置（残り${g.count}匹）` : 'タップで設置';
       card.appendChild(tag);
       invWrap.appendChild(card);
     });
@@ -560,10 +635,16 @@ function showCatchResult(caught) {
   caught.forEach((item, i) => {
     const card = fishCard(item);
     card.style.animationDelay = (i * 0.08) + 's';
+    if (item.autoSold) {
+      const tag = document.createElement('div');
+      tag.className = 'place-tag autosold-tag';
+      tag.textContent = `💰自動売却 +${item.value}`;
+      card.appendChild(tag);
+    }
     wrap.appendChild(card);
   });
   const log = document.getElementById('catch-log');
-  const names = caught.map(c => c.emoji).join(' ');
+  const names = caught.map(c => c.autoSold ? `${c.emoji}💰` : c.emoji).join(' ');
   const entry = document.createElement('div');
   entry.className = 'log-entry';
   entry.textContent = names + ' を釣った！';
@@ -629,6 +710,12 @@ function init() {
   document.getElementById('admin-modal').addEventListener('click', e => {
     if (e.target.id === 'admin-modal') closeAdminModal();
   });
+  document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
+  document.getElementById('settings-close').addEventListener('click', closeSettingsModal);
+  document.getElementById('settings-modal').addEventListener('click', e => {
+    if (e.target.id === 'settings-modal') closeSettingsModal();
+  });
+  document.getElementById('light-mode-checkbox').addEventListener('change', e => toggleLightMode(e.target.checked));
   renderAll();
   if (state.autoFish) castRod(); // 前回終了時に自動釣りONだったら再開
   setInterval(tick, 1000);

@@ -103,6 +103,7 @@
 
 <footer class="app-footer">
   <span id="game-version" class="version-link"></span>
+  <button id="settings-btn" class="admin-gear-btn" title="設定（軽量モード・自動売却）">⚡</button>
   <button id="admin-gear-btn" class="admin-gear-btn" title="管理者メニュー">⚙</button>
 </footer>
 
@@ -113,6 +114,30 @@
       <button id="changelog-close" class="modal-close">×</button>
     </div>
     <div id="changelog-body" class="modal-body"></div>
+  </div>
+</div>
+
+<div id="settings-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>⚡ 設定</h3>
+      <button id="settings-close" class="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <label class="settings-toggle-row">
+        <input type="checkbox" id="light-mode-checkbox">
+        <span>
+          <b>軽量モード</b><br>
+          <span class="settings-note">絵文字が光る演出やアニメーションを減らして動作を軽くします。手持ちの絵文字が多いときにおすすめです。</span>
+        </span>
+      </label>
+
+      <hr class="admin-divider">
+      <div class="admin-section-header"><span>💰 自動売却設定</span></div>
+      <p class="settings-note">釣った瞬間にコインへ変えるレアリティを選べます（拠点には置かれませんが、図鑑にはきちんと記録されます）。管理者からのプレゼントは対象外で、必ず手持ちに届きます。</p>
+      <p class="settings-note">⚠ リボーンに必要なレアリティを自動売却にすると、リボーンの材料が集まらなくなるので注意してください。</p>
+      <div id="autosell-list" class="autosell-list"></div>
+    </div>
   </div>
 </div>
 

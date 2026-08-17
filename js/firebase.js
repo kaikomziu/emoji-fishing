@@ -258,9 +258,10 @@ function renderTradeInventory() {
     wrap.innerHTML = '<p class="empty-msg">送れる絵文字がありません。海で釣ってこよう！</p>';
     return;
   }
-  state.inventory.forEach(item => {
-    const card = fishCard(item, { onClick: () => selectTradeFish(item.id) });
-    if (item.id === selectedTradeFishId) card.classList.add('selected');
+  const groups = groupFishList(state.inventory);
+  groups.forEach(g => {
+    const card = fishCard(g.sample, { count: g.count, onClick: () => selectTradeFish(g.ids[0]) });
+    if (g.ids.includes(selectedTradeFishId)) card.classList.add('selected');
     wrap.appendChild(card);
   });
 }

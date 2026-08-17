@@ -84,10 +84,16 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 @keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .fish-emoji { font-size: 2rem; line-height: 1.1; }
 .fish-meta { font-size: 0.68rem; color: var(--sub); margin-top: 4px; }
+.fish-count-badge {
+  position: absolute; top: -6px; right: -6px; background: #1f2937; color: #fff;
+  font-size: 0.65rem; font-weight: 700; border-radius: 999px; padding: 2px 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
 .place-tag {
   margin-top: 4px; font-size: 0.62rem; font-weight: 700; color: #fff;
   background: var(--rc); border-radius: 999px; padding: 2px 6px; display: inline-block;
 }
+.autosold-tag { background: #16a34a; }
 .fish-grid { display: flex; flex-wrap: wrap; gap: 10px; cursor: pointer; }
 .fish-grid .fish-card:active { transform: scale(0.94); }
 
@@ -206,6 +212,26 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
   text-decoration: underline; padding: 6px; cursor: pointer;
 }
 .admin-error { color: #dc2626; font-size: 0.8rem; margin-top: 8px; }
+
+/* 表示設定（軽量モード） */
+.settings-toggle-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin-bottom: 8px; }
+.settings-toggle-row input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+.settings-note { font-size: 0.75rem; color: var(--sub); font-weight: 400; margin: 6px 0; }
+.autosell-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.autosell-row { font-size: 0.85rem; }
+
+/* 軽量モード: アニメーション・演出を止めて動作を軽くする */
+body.light-mode .fish-card,
+body.light-mode .base-slot.filled,
+body.light-mode .dex-cell.found,
+body.light-mode .theme-card {
+  animation: none !important;
+}
+body.light-mode .fish-card.mutant,
+body.light-mode .base-slot.mutant {
+  animation: none !important;
+  box-shadow: 0 0 0 2px var(--rc) !important;
+}
 
 .admin-divider { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
 .admin-section-header {
