@@ -42,7 +42,26 @@ async function main() {
   let rarity = argRarity ? argRarity.toLowerCase() : undefined;
 
   if (!emoji || !name || !rarity) {
-    console.log('🎣 絵文字フィッシング - 新しい絵文字を追加します\n');
+    console.log(`🎣 絵文字フィッシング - 新しい絵文字を追加します
+
+────────────────────────────────────────
+一行で済ませたい場合はこう書けます:
+  node add-fish.js <絵文字> <名前> <レアリティ>
+  node add-fish.js 🍩 ドーナツ uncommon
+
+オプション（末尾に付け足す）:
+  --exclusive   釣りでは出てこない「配布限定」キャラにする
+  --push        追加と同時にGitHubへpush（公開）する
+
+組み合わせ例:
+  node add-fish.js 🍩 ドーナツ uncommon --push
+  node add-fish.js 🦕 恐竜 epic --exclusive --push
+
+レアリティ: common(コモン) / uncommon(アンコモン) / rare(レア) / epic(エピック) / legendary(レジェンダリー)
+────────────────────────────────────────
+
+このまま質問に答えても追加できます:
+`);
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     if (!emoji) emoji = await ask(rl, '追加する絵文字を入力してください（コピペでOK）: ');
     if (!name) name = await ask(rl, '図鑑に表示する名前を入力してください（例: ピザ）: ');
