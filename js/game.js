@@ -16,6 +16,7 @@ let state = {
   theme: 'default',
   rebornCount: 0,      // リボーン回数
   autoFish: false,     // 自動釣りON/OFF（ONの間はクールダウンが2倍になる）
+  claimedGiftIds: [],  // 受け取り済みの管理者プレゼントID（重複受け取り防止）
 };
 
 let uidCounter = 1;

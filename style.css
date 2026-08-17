@@ -227,6 +227,7 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
   border: none; background: none; color: #dc2626; text-decoration: underline;
   font-size: 0.75rem; cursor: pointer; flex-shrink: 0;
 }
+.admin-gift-note { font-size: 0.72rem; color: var(--sub); margin: 6px 0 0; }
 
 /* 拠点グリッド */
 .base-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 20px; }

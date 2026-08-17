@@ -89,8 +89,11 @@ function initFirebase() {
     if (!doc.exists) { liveEvent = null; return; }
     const data = doc.data();
     const expiresAt = data.expiresAt && data.expiresAt.toMillis ? data.expiresAt.toMillis() : 0;
-    liveEvent = { message: data.message || '', luckMultiplier: data.luckMultiplier || 1, expiresAt };
+    liveEvent = { message: data.message || '', luckMultiplier: data.luckMultiplier || 1, expiresAt, gift: data.gift || null, giftId: data.giftId || null };
     updateEventBanner();
+    if (data.gift && data.giftId && expiresAt > Date.now()) {
+      claimGift(data.gift, data.giftId);
+    }
   }, err => console.warn('ブロードキャスト購読エラー', err));
 }
 
@@ -432,11 +435,29 @@ function updateEventBanner() {
   if (!banner) return;
   if (liveEvent && liveEvent.expiresAt > Date.now() && liveEvent.message) {
     const luckText = liveEvent.luckMultiplier > 1 ? `　🍀運 ×${liveEvent.luckMultiplier}中！` : '';
-    banner.textContent = `📢 ${liveEvent.message}${luckText}`;
+    const giftText = liveEvent.gift ? `　🎁${liveEvent.gift.emoji}プレゼント配布中！` : '';
+    banner.textContent = `📢 ${liveEvent.message}${luckText}${giftText}`;
     banner.classList.add('show');
   } else {
     banner.classList.remove('show');
   }
+}
+
+// 管理者からのプレゼントを受け取る（同じgiftIdは一度だけ受け取れる）
+function claimGift(gift, giftId) {
+  if (!state.claimedGiftIds) state.claimedGiftIds = [];
+  if (state.claimedGiftIds.includes(giftId)) return;
+  const mutation = mutationById(gift.mutationId);
+  const item = { id: nextId(), rarityId: gift.rarityId, emoji: gift.emoji, value: gift.value, mutationId: gift.mutationId || 'none' };
+  state.inventory.push(item);
+  if (typeof recordDex === 'function') recordDex(item);
+  state.claimedGiftIds.push(giftId);
+  if (state.claimedGiftIds.length > 30) state.claimedGiftIds = state.claimedGiftIds.slice(-30);
+  if (typeof checkAchievements === 'function') checkAchievements();
+  save();
+  renderAll();
+  const label = mutation && mutation.id !== 'none' ? `${mutation.badge}${item.emoji}` : item.emoji;
+  flashMessage(`🎁 管理者から ${label} をもらいました！`);
 }
 
 // ---------- 管理者パネル ----------
@@ -475,6 +496,20 @@ function renderAdminPanel() {
         <option value="10" selected>10分</option>
         <option value="30">30分</option>
       </select>
+
+      <label class="admin-label">🎁 絵文字プレゼント（任意）</label>
+      <select id="broadcast-gift-rarity">
+        <option value="">配布しない</option>
+        ${RARITIES.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+      </select>
+      <select id="broadcast-gift-emoji" style="margin-top:6px; display:none;"></select>
+      <select id="broadcast-gift-mutation" style="margin-top:6px; display:none;">
+        <option value="none">通常個体</option>
+        <option value="golden">✨ 金個体</option>
+        <option value="rainbow">🌈 虹個体</option>
+      </select>
+      <p class="admin-gift-note">受け取ったプレイヤーの持続時間内、拠点に置いていなくても手持ちに追加されます（1人1回まで）</p>
+
       <button id="broadcast-send-btn" class="buy-btn admin-send-btn">📢 全員に送信</button>
 
       <hr class="admin-divider">
@@ -494,6 +529,7 @@ function renderAdminPanel() {
       <button id="admin-logout-btn" class="admin-logout-btn">ログアウト</button>
     `;
     document.getElementById('broadcast-send-btn').addEventListener('click', sendBroadcast);
+    document.getElementById('broadcast-gift-rarity').addEventListener('change', updateGiftEmojiOptions);
     document.getElementById('admin-clear-ranking-btn').addEventListener('click', adminClearAllPlayers);
     document.getElementById('admin-clear-trades-btn').addEventListener('click', adminClearAllTrades);
     document.getElementById('admin-logout-btn').addEventListener('click', () => fbAuth.signOut());
@@ -605,18 +641,51 @@ function adminClearAllTrades() {
   }).catch(err => flashMessage('削除失敗: ' + err.message));
 }
 
+// レアリティ選択に応じて配布する絵文字の選択肢を作る
+function updateGiftEmojiOptions() {
+  const rarityId = document.getElementById('broadcast-gift-rarity').value;
+  const emojiSelect = document.getElementById('broadcast-gift-emoji');
+  const mutationSelect = document.getElementById('broadcast-gift-mutation');
+  if (!rarityId) {
+    emojiSelect.style.display = 'none';
+    mutationSelect.style.display = 'none';
+    return;
+  }
+  const pool = FISH_POOL[rarityId] || [];
+  emojiSelect.innerHTML = pool.map(e => `<option value="${e}">${e} ${FISH_NAMES[e] || ''}</option>`).join('');
+  emojiSelect.style.display = '';
+  mutationSelect.style.display = '';
+}
+
 function sendBroadcast() {
   const message = document.getElementById('broadcast-message').value.trim();
   const luckMultiplier = parseInt(document.getElementById('broadcast-luck').value, 10);
   const minutes = parseInt(document.getElementById('broadcast-duration').value, 10);
   if (!message) { flashMessage('メッセージを入力してください'); return; }
   const expiresAt = firebase.firestore.Timestamp.fromMillis(Date.now() + minutes * 60000);
-  fbDb.collection('admin').doc('broadcast').set({
+
+  const giftRarityId = document.getElementById('broadcast-gift-rarity').value;
+  let gift = null, giftId = null;
+  if (giftRarityId) {
+    const emoji = document.getElementById('broadcast-gift-emoji').value;
+    const mutationId = document.getElementById('broadcast-gift-mutation').value;
+    const rarity = RARITIES.find(r => r.id === giftRarityId);
+    const mutation = mutationById(mutationId);
+    gift = { emoji, rarityId: giftRarityId, value: Math.round(rarity.value * mutation.mult), mutationId };
+    giftId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  const payload = {
     message, luckMultiplier, expiresAt,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     createdBy: adminUser.email,
-  }).then(() => {
-    flashMessage('全ユーザーに送信しました！');
+  };
+  if (gift) { payload.gift = gift; payload.giftId = giftId; }
+  // set()は毎回ドキュメント全体を置き換えるため、プレゼントなしの場合は
+  // gift/giftIdフィールド自体が含まれず、前回の配布情報も自然に消える
+
+  fbDb.collection('admin').doc('broadcast').set(payload).then(() => {
+    flashMessage(gift ? `全ユーザーに ${gift.emoji} を配布しました！` : '全ユーザーに送信しました！');
     closeAdminModal();
   }).catch(err => flashMessage('送信失敗: ' + err.message));
 }
