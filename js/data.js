@@ -77,9 +77,51 @@ const UPGRADES = {
 const BASE_SLOTS_START = 8;
 const BASE_SLOTS_PER_UPGRADE = 4;
 
+// ホームの見た目テーマ（実績で解放）
+const THEMES = [
+  { id: 'default', name: 'デフォルト', icon: '🏠', sea: '#0ea5e9', seaDark: '#0369a1', accent: '#f59e0b' },
+  { id: 'gold',    name: 'ゴールドハウス', icon: '🏆', sea: '#f5c518', seaDark: '#b45309', accent: '#fbbf24' },
+  { id: 'rainbow', name: 'レインボーハウス', icon: '🌈', sea: '#ec4899', seaDark: '#7c3aed', accent: '#22d3ee' },
+];
+
+// 実績定義：条件を満たすと自動解放。一部はテーマ（家の色）を解放する
+const ACHIEVEMENTS = [
+  { id: 'catch1',    icon: '🎣', name: 'はじめての一匹',   desc: '絵文字を1匹釣る',
+    check: s => s.stats.totalCatches >= 1 },
+  { id: 'catch50',   icon: '🐟', name: '見習い釣り人',     desc: '合計50匹釣る',
+    check: s => s.stats.totalCatches >= 50 },
+  { id: 'catch500',  icon: '🎖️', name: 'ベテラン釣り人',   desc: '合計500匹釣る',
+    check: s => s.stats.totalCatches >= 500 },
+  { id: 'catch5000', icon: '🏅', name: '伝説の釣り人',     desc: '合計5000匹釣る',
+    check: s => s.stats.totalCatches >= 5000 },
+  { id: 'golden1',   icon: '✨', name: '黄金の一匹',       desc: '✨金の変異個体を釣る',
+    check: s => (s.stats.goldenCatches || 0) >= 1 },
+  { id: 'rainbow1',  icon: '🌈', name: '虹色の奇跡',       desc: '🌈虹の変異個体を釣る',
+    check: s => (s.stats.rainbowCatches || 0) >= 1 },
+  { id: 'baseFull',  icon: '🧺', name: '拠点マスター',     desc: '拠点マスをすべて埋める',
+    check: s => s.slots.length > 0 && s.slots.every(x => x) },
+  { id: 'coins1000', icon: '💰', name: '駆け出しの資産家', desc: '累計1,000コイン稼ぐ',
+    check: s => (s.stats.totalCoinsEarned || 0) >= 1000 },
+  { id: 'coins10000',icon: '💎', name: 'コイン長者',       desc: '累計10,000コイン稼ぐ',
+    check: s => (s.stats.totalCoinsEarned || 0) >= 10000 },
+  { id: 'rod10',     icon: '🎣', name: '竿の達人',         desc: '釣り竿レベル10到達',
+    check: s => s.rodLevel >= 10 },
+  { id: 'luck10',    icon: '🍀', name: '幸運の使い手',     desc: '幸運のお守りレベル10到達',
+    check: s => s.luckLevel >= 10 },
+  { id: 'dex50',     icon: '📖', name: '図鑑コレクター',   desc: '図鑑を50%埋める',
+    check: s => Object.keys(s.dex).length / ALL_FISH.length >= 0.5 },
+  { id: 'dex85',     icon: '🏆', name: '図鑑マイスター',   desc: '図鑑を85%埋める（家の色が変わる！）',
+    check: s => Object.keys(s.dex).length / ALL_FISH.length >= 0.85,
+    rewardThemeId: 'gold' },
+  { id: 'dex100',    icon: '🌟', name: '図鑑コンプリート', desc: '図鑑を100%埋める（虹の家が解放！）',
+    check: s => Object.keys(s.dex).length / ALL_FISH.length >= 1,
+    rewardThemeId: 'rainbow' },
+];
+
 // 更新履歴
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const CHANGELOG = [
+  { version: '1.2.0', date: '2026-08-17', notes: ['実績タブを追加（全13種）', '図鑑85%/100%達成でホームの色が変わるテーマを解放', '更新履歴を見られるようにしました'] },
   { version: '1.1.0', date: '2026-08-17', notes: ['図鑑タブを追加', '低確率の変異（✨金・🌈虹）個体を追加', 'セーブデータは自動でブラウザに保存されます'] },
   { version: '1.0.0', date: '2026-08-17', notes: ['公開！海・ホーム・ショップの3エリアで絵文字フィッシングを楽しもう'] },
 ];

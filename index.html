@@ -57,6 +57,18 @@
     <p id="dex-summary" class="sub-desc"></p>
     <div id="dex-grid" class="dex-grid"></div>
   </section>
+
+  <!-- 実績 -->
+  <section id="panel-achieve" class="tab-panel">
+    <h2>🏆 実績</h2>
+    <p id="achieve-summary" class="sub-desc"></p>
+
+    <h3>ホームのテーマ</h3>
+    <div id="theme-list" class="theme-list"></div>
+
+    <h3>実績一覧</h3>
+    <div id="achieve-list" class="achieve-list"></div>
+  </section>
 </main>
 
 <nav class="tab-bar">
@@ -64,9 +76,20 @@
   <button class="tab-btn" data-tab="home">🏠<br>ホーム</button>
   <button class="tab-btn" data-tab="shop">🛒<br>ショップ</button>
   <button class="tab-btn" data-tab="dex">📖<br>図鑑</button>
+  <button class="tab-btn" data-tab="achieve">🏆<br>実績</button>
 </nav>
 
-<footer class="app-footer"><span id="game-version"></span></footer>
+<footer class="app-footer"><span id="game-version" class="version-link"></span></footer>
+
+<div id="changelog-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📝 更新履歴</h3>
+      <button id="changelog-close" class="modal-close">×</button>
+    </div>
+    <div id="changelog-body" class="modal-body"></div>
+  </div>
+</div>
 
 <script src="js/data.js"></script>
 <script src="js/game.js"></script>

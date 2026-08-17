@@ -9,8 +9,11 @@ let state = {
   baseLevel: 0,
   inventory: [],      // 釣ったがまだ拠点に置いていない絵文字 [{id, rarityId, emoji, value, mutationId}]
   slots: [],           // 拠点マス（null または {id, rarityId, emoji, value, mutationId}）
-  stats: { totalCatches: 0, legendaryCatches: 0 },
+  stats: { totalCatches: 0, legendaryCatches: 0, goldenCatches: 0, rainbowCatches: 0, totalCoinsEarned: 0 },
   dex: {},             // 図鑑データ { emoji: { count, mutations: {golden, rainbow} } }
+  achievements: {},    // { achievementId: unlockedAtTimestamp }
+  unlockedThemes: ['default'],
+  theme: 'default',
 };
 
 let uidCounter = 1;
@@ -36,10 +39,16 @@ function load() {
   if (raw) {
     try {
       const loaded = JSON.parse(raw);
+      const defaultStats = state.stats;
       state = Object.assign(state, loaded);
+      state.stats = Object.assign({}, defaultStats, loaded.stats || {}); // 旧セーブに無いフィールドを補完
+      state.unlockedThemes = loaded.unlockedThemes || ['default'];
+      state.achievements = loaded.achievements || {};
+      state.theme = loaded.theme || 'default';
     } catch (e) { console.warn('セーブデータの読み込みに失敗しました', e); }
   }
   initSlots();
+  applyTheme(state.theme);
   // idカウンタをズレなく再開できるよう最大idを調べる
   let maxId = 0;
   [...state.inventory, ...state.slots].forEach(item => { if (item && item.id > maxId) maxId = item.id; });
@@ -78,9 +87,46 @@ function catchFish() {
     caught.push(item);
     state.stats.totalCatches++;
     if (rarity.id === 'legendary') state.stats.legendaryCatches++;
+    if (mutation.id === 'golden') state.stats.goldenCatches++;
+    if (mutation.id === 'rainbow') state.stats.rainbowCatches++;
     recordDex(item);
   }
+  checkAchievements();
   return caught;
+}
+
+// ---------- 実績 / テーマ ----------
+function checkAchievements() {
+  const newlyUnlocked = [];
+  ACHIEVEMENTS.forEach(a => {
+    if (state.achievements[a.id]) return;
+    if (a.check(state)) {
+      state.achievements[a.id] = Date.now();
+      newlyUnlocked.push(a);
+      if (a.rewardThemeId && !state.unlockedThemes.includes(a.rewardThemeId)) {
+        state.unlockedThemes.push(a.rewardThemeId);
+      }
+    }
+  });
+  newlyUnlocked.forEach(a => {
+    flashMessage(`🎉 実績解放: ${a.icon} ${a.name}`);
+  });
+  return newlyUnlocked;
+}
+
+function applyTheme(themeId) {
+  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  document.documentElement.style.setProperty('--sea', theme.sea);
+  document.documentElement.style.setProperty('--sea-dark', theme.seaDark);
+  document.documentElement.style.setProperty('--accent', theme.accent);
+}
+
+function selectTheme(themeId) {
+  if (!state.unlockedThemes.includes(themeId)) return;
+  state.theme = themeId;
+  applyTheme(themeId);
+  save();
+  renderAll();
 }
 
 function recordDex(item) {
@@ -237,12 +283,45 @@ function renderDex() {
   });
 }
 
+function renderAchievements() {
+  const unlockedCount = Object.keys(state.achievements).length;
+  document.getElementById('achieve-summary').textContent = `実績: ${unlockedCount} / ${ACHIEVEMENTS.length}`;
+
+  const themeWrap = document.getElementById('theme-list');
+  themeWrap.innerHTML = '';
+  THEMES.forEach(t => {
+    const unlocked = state.unlockedThemes.includes(t.id);
+    const card = document.createElement('div');
+    card.className = 'theme-card' + (unlocked ? ' unlocked' : ' locked') + (state.theme === t.id ? ' current' : '');
+    card.innerHTML = `<div class="theme-icon">${unlocked ? t.icon : '🔒'}</div><div class="theme-name">${unlocked ? t.name : '???'}</div>`;
+    if (unlocked) card.addEventListener('click', () => selectTheme(t.id));
+    themeWrap.appendChild(card);
+  });
+
+  const wrap = document.getElementById('achieve-list');
+  wrap.innerHTML = '';
+  ACHIEVEMENTS.forEach(a => {
+    const unlocked = !!state.achievements[a.id];
+    const row = document.createElement('div');
+    row.className = 'achieve-row' + (unlocked ? ' unlocked' : '');
+    row.innerHTML = `
+      <div class="achieve-icon">${unlocked ? a.icon : '🔒'}</div>
+      <div class="achieve-info">
+        <div class="achieve-name">${unlocked ? a.name : '？？？'}</div>
+        <div class="achieve-desc">${unlocked ? a.desc : '未解放の実績です'}</div>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
 function renderAll() {
   renderStats();
   if (currentTab === 'sea') renderSea();
   if (currentTab === 'home') renderHome();
   if (currentTab === 'shop') renderShop();
   if (currentTab === 'dex') renderDex();
+  if (currentTab === 'achieve') renderAchievements();
 }
 
 // ---------- アクション ----------
@@ -256,6 +335,7 @@ function placeFish(id) {
   if (invIdx === -1) return;
   const [item] = state.inventory.splice(invIdx, 1);
   state.slots[idx] = item;
+  checkAchievements();
   save();
   renderAll();
 }
@@ -275,6 +355,7 @@ function buyUpgrade(key, cost) {
   if (key === 'rod') state.rodLevel++;
   if (key === 'luck') state.luckLevel++;
   if (key === 'base') { state.baseLevel++; initSlots(); }
+  checkAchievements();
   save();
   renderAll();
 }
@@ -331,6 +412,8 @@ function tick() {
   const cps = coinsPerSec();
   if (cps > 0) {
     state.coins += cps;
+    state.stats.totalCoinsEarned += cps;
+    checkAchievements();
     save();
     renderStats();
     if (currentTab === 'home') {
@@ -338,6 +421,26 @@ function tick() {
         `拠点マス: ${state.slots.filter(s => s).length} / ${state.slots.length}　合計 +${cps.toLocaleString()} コイン/秒`;
     }
   }
+}
+
+// ---------- 更新履歴モーダル ----------
+function renderChangelog() {
+  const wrap = document.getElementById('changelog-body');
+  wrap.innerHTML = CHANGELOG.map(c => `
+    <div class="changelog-entry">
+      <div class="changelog-version">v${c.version} <span class="changelog-date">${c.date}</span></div>
+      <ul>${c.notes.map(n => `<li>${n}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+}
+
+function openChangelog() {
+  renderChangelog();
+  document.getElementById('changelog-modal').classList.add('show');
+}
+
+function closeChangelog() {
+  document.getElementById('changelog-modal').classList.remove('show');
 }
 
 // ---------- 起動 ----------
@@ -348,6 +451,11 @@ function init() {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('cast-btn').addEventListener('click', castRod);
+  document.getElementById('game-version').addEventListener('click', openChangelog);
+  document.getElementById('changelog-close').addEventListener('click', closeChangelog);
+  document.getElementById('changelog-modal').addEventListener('click', e => {
+    if (e.target.id === 'changelog-modal') closeChangelog();
+  });
   renderAll();
   setInterval(tick, 1000);
 }

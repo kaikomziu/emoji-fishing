@@ -111,6 +111,49 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 .dex-name { font-size: 0.72rem; font-weight: 700; margin-top: 2px; }
 .dex-count { font-size: 0.68rem; color: var(--sub); margin-top: 2px; }
 
+/* テーマ選択 */
+.theme-list { display: flex; gap: 10px; margin-bottom: 6px; }
+.theme-card {
+  flex: 1; text-align: center; padding: 14px 6px; border-radius: 12px;
+  background: var(--card-bg); border: 2px solid #e5e7eb;
+}
+.theme-card.unlocked { cursor: pointer; border-color: var(--sea); }
+.theme-card.current { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.theme-card.locked { opacity: 0.5; }
+.theme-icon { font-size: 1.6rem; }
+.theme-name { font-size: 0.72rem; font-weight: 700; margin-top: 4px; }
+
+/* 実績一覧 */
+.achieve-list { display: flex; flex-direction: column; gap: 8px; }
+.achieve-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card-bg); border-radius: 12px; padding: 10px 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06); opacity: 0.55;
+}
+.achieve-row.unlocked { opacity: 1; border: 2px solid var(--accent); }
+.achieve-icon { font-size: 1.5rem; width: 34px; text-align: center; }
+.achieve-name { font-weight: 700; font-size: 0.9rem; }
+.achieve-desc { font-size: 0.75rem; color: var(--sub); }
+
+/* 更新履歴モーダル */
+.version-link { cursor: pointer; text-decoration: underline; }
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  align-items: center; justify-content: center; z-index: 100; padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--card-bg); border-radius: 16px; max-width: 420px; width: 100%;
+  max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #eee; }
+.modal-close { border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--sub); line-height: 1; }
+.modal-body { padding: 14px 16px; overflow-y: auto; }
+.changelog-entry { margin-bottom: 14px; }
+.changelog-version { font-weight: 700; color: var(--sea-dark); }
+.changelog-date { font-weight: 400; color: var(--sub); font-size: 0.78rem; }
+.changelog-entry ul { margin: 4px 0 0 18px; font-size: 0.85rem; }
+
 /* 拠点グリッド */
 .base-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 20px; }
 .base-slot {
