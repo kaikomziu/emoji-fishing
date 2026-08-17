@@ -9,7 +9,12 @@ let state = {
   baseLevel: 0,
   inventory: [],      // 釣ったがまだ拠点に置いていない絵文字 [{id, rarityId, emoji, value, mutationId}]
   slots: [],           // 拠点マス（null または {id, rarityId, emoji, value, mutationId}）
-  stats: { totalCatches: 0, legendaryCatches: 0, goldenCatches: 0, rainbowCatches: 0, totalCoinsEarned: 0 },
+  stats: {
+    totalCatches: 0, legendaryCatches: 0, goldenCatches: 0, rainbowCatches: 0, totalCoinsEarned: 0,
+    mythicCatches: 0, celestialCatches: 0, cosmicCatches: 0, ultimateCatches: 0, oopartCatches: 0,
+    tradesSent: 0, tradesReceived: 0, manualSells: 0, giftsReceived: 0,
+    usedAutoFish: false, usedAutoSell: false,
+  },
   dex: {},             // 図鑑データ { emoji: { count, mutations: {golden, rainbow} } }
   achievements: {},    // { achievementId: unlockedAtTimestamp }
   unlockedThemes: ['default'],
@@ -95,6 +100,11 @@ function catchFish() {
     const item = { id: nextId(), rarityId: rarity.id, emoji, value, mutationId: mutation.id };
     state.stats.totalCatches++;
     if (rarity.id === 'legendary') state.stats.legendaryCatches++;
+    if (rarity.id === 'mythic') state.stats.mythicCatches = (state.stats.mythicCatches || 0) + 1;
+    if (rarity.id === 'celestial') state.stats.celestialCatches = (state.stats.celestialCatches || 0) + 1;
+    if (rarity.id === 'cosmic') state.stats.cosmicCatches = (state.stats.cosmicCatches || 0) + 1;
+    if (rarity.id === 'ultimate') state.stats.ultimateCatches = (state.stats.ultimateCatches || 0) + 1;
+    if (rarity.id === 'oopart') state.stats.oopartCatches = (state.stats.oopartCatches || 0) + 1;
     if (mutation.id === 'golden') state.stats.goldenCatches++;
     if (mutation.id === 'rainbow') state.stats.rainbowCatches++;
     recordDex(item);
@@ -182,6 +192,8 @@ function closeSettingsModal() {
 function toggleAutoSellRarity(rarityId, checked) {
   if (!state.autoSellRarities) state.autoSellRarities = {};
   state.autoSellRarities[rarityId] = checked;
+  if (checked) state.stats.usedAutoSell = true;
+  checkAchievements();
   save();
   const rarity = rarityById(rarityId);
   flashMessage(checked ? `💰 ${rarity.name}を自動売却するようにしました` : `${rarity.name}の自動売却をOFFにしました`);
@@ -270,6 +282,8 @@ function renderSea() {
 
 function toggleAutoFish() {
   state.autoFish = !state.autoFish;
+  if (state.autoFish) state.stats.usedAutoFish = true;
+  checkAchievements();
   save();
   renderSea();
   if (state.autoFish && !fishing) castRod();
@@ -528,7 +542,6 @@ function renderAll() {
   if (currentTab === 'shop') renderShop();
   if (currentTab === 'dex') renderDex();
   if (currentTab === 'achieve') renderAchievements();
-  if (currentTab === 'ranking' && typeof renderRanking === 'function') renderRanking();
   if (currentTab === 'trade' && typeof renderTrade === 'function') renderTrade();
 }
 
@@ -650,6 +663,7 @@ function confirmSell() {
   const total = removed * unitValue;
   state.coins += total;
   state.stats.totalCoinsEarned += total;
+  state.stats.manualSells = (state.stats.manualSells || 0) + removed;
   checkAchievements();
   save();
   closeSellModal();
@@ -774,7 +788,7 @@ function tick() {
         `拠点マス: ${state.slots.filter(s => s).length} / ${state.slots.length}　合計 +${cps.toLocaleString()} コイン/秒`;
     }
   }
-  if (typeof syncRanking === 'function') syncRanking(false);
+  if (typeof syncPresence === 'function') syncPresence(false);
   if (typeof updateEventBanner === 'function') updateEventBanner();
 }
 

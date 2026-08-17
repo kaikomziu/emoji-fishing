@@ -203,17 +203,11 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 }
 #event-banner.show { display: block; }
 
-/* ランキング */
+/* プレイヤー一覧共通（トレードのオンライン表示等） */
 .nickname-row { display: flex; gap: 8px; margin: 10px 0; }
 .nickname-row input {
   flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 0.9rem;
 }
-.rank-cat-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-.rank-cat-btn {
-  border: none; border-radius: 999px; padding: 6px 12px; font-size: 0.78rem; font-weight: 700;
-  background: #e5f2f8; color: var(--sea-dark); cursor: pointer;
-}
-.rank-cat-btn.active { background: var(--sea); color: #fff; }
 .ranking-list { display: flex; flex-direction: column; gap: 6px; }
 .rank-row {
   display: flex; align-items: center; gap: 10px; background: var(--card-bg);

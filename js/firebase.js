@@ -1,22 +1,15 @@
-// ===== Firebase 連携（ランキング／管理者ブロードキャスト） =====
+// ===== Firebase 連携（トレード／管理者ブロードキャスト） =====
 // FIREBASE_CONFIG が null の間は全機能が無効化され、通常プレイには影響しません。
+// ランキング機能は廃止済み。players コレクションは現在、トレードのオンライン表示とニックネーム保存のみに使う。
 
-const RANKING_CATEGORIES = [
-  { id: 'totalCoinsEarned', label: '累計コイン', fmt: v => Math.floor(v).toLocaleString() + ' 💰' },
-  { id: 'coins',            label: '所持コイン', fmt: v => Math.floor(v).toLocaleString() + ' 💰' },
-  { id: 'dexPercent',       label: '図鑑達成率', fmt: v => v.toFixed(0) + ' %' },
-  { id: 'totalCatches',     label: '釣った匹数', fmt: v => Math.floor(v).toLocaleString() + ' 匹' },
-];
-
-// ローカル検証環境（開発用プレビューサーバー）からはランキング登録・トレードのオンライン表示を一切行わない。
-// 本番公開先（GitHub Pages）以外での動作確認が、公開中のランキングやトレードを汚さないようにするための安全策。
+// ローカル検証環境（開発用プレビューサーバー）からはプレゼンス登録・トレードのオンライン表示を一切行わない。
+// 本番公開先（GitHub Pages）以外での動作確認が、公開中のトレードを汚さないようにするための安全策。
 const IS_TEST_ENV = (typeof location !== 'undefined') &&
   (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:');
 
 let fbApp = null, fbAuth = null, fbDb = null;
 let fbReady = false;
 let playerUid = null;
-let rankingCategory = 'totalCoinsEarned';
 let liveEvent = null; // { message, luckMultiplier, expiresAt }
 let lastSyncAt = 0;
 let adminUser = null;
@@ -56,7 +49,7 @@ function initFirebase() {
     if (user) {
       playerUid = user.uid;
       loadPlayerNickname();
-      syncRanking(true);
+      syncPresence(true);
       listenIncomingTrades();
       listenOutgoingTrades();
       if (user.email === ADMIN_EMAIL) {
@@ -97,7 +90,9 @@ function initFirebase() {
   }, err => console.warn('ブロードキャスト購読エラー', err));
 }
 
-// ---------- ランキング ----------
+// ---------- プレゼンス（オンライン表示・ニックネーム、トレード用） ----------
+let lastPresenceSyncAt = 0;
+
 function loadPlayerNickname() {
   if (!fbDb || !playerUid) return;
   fbDb.collection('players').doc(playerUid).get().then(doc => {
@@ -109,7 +104,7 @@ function loadPlayerNickname() {
 
 function saveNickname() {
   if (!fbDb || !playerUid) return;
-  if (IS_TEST_ENV) { flashMessage('テスト環境のためランキングへは保存されません'); return; }
+  if (IS_TEST_ENV) { flashMessage('テスト環境のため保存されません'); return; }
   const input = document.getElementById('nickname-input');
   const nickname = (input.value || '').trim().slice(0, 16) || '名無しの釣り人';
   input.value = nickname;
@@ -117,77 +112,15 @@ function saveNickname() {
   flashMessage('ニックネームを保存しました');
 }
 
-function syncRanking(force) {
+// トレードのオンライン表示のために、生存確認（lastActive）だけを送る
+function syncPresence(force) {
   if (!fbReady || !playerUid || IS_TEST_ENV) return;
   const now = Date.now();
-  if (!force && now - lastSyncAt < 8000) return; // 8秒に1回まで
-  lastSyncAt = now;
-  const dexPercent = ALL_FISH.length ? (Object.keys(state.dex).length / ALL_FISH.length) * 100 : 0;
+  if (!force && now - lastPresenceSyncAt < 8000) return; // 8秒に1回まで
+  lastPresenceSyncAt = now;
   fbDb.collection('players').doc(playerUid).set({
-    coins: Math.floor(state.coins),
-    totalCoinsEarned: Math.floor(state.stats.totalCoinsEarned || 0),
-    totalCatches: state.stats.totalCatches || 0,
-    dexPercent: dexPercent,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true }).catch(err => console.warn('ランキング送信失敗', err));
-}
-
-function switchRankingCategory(catId) {
-  rankingCategory = catId;
-  renderRanking();
-}
-
-function renderRanking() {
-  const wrap = document.getElementById('ranking-panel-body');
-  if (!wrap) return;
-
-  if (!firebaseAvailable()) {
-    wrap.innerHTML = '<p class="empty-msg">ランキング機能は準備中です（Firebase未設定）。</p>';
-    return;
-  }
-  if (!fbReady || !playerUid) {
-    wrap.innerHTML = connectionStatusHtml();
-    wireRetryButton(wrap);
-    return;
-  }
-
-  const tabsHtml = RANKING_CATEGORIES.map(c =>
-    `<button class="rank-cat-btn${c.id === rankingCategory ? ' active' : ''}" data-cat="${c.id}">${c.label}</button>`
-  ).join('');
-
-  wrap.innerHTML = `
-    <div class="nickname-row">
-      <input id="nickname-input" maxlength="16" placeholder="ニックネーム">
-      <button id="nickname-save-btn" class="buy-btn">保存</button>
-    </div>
-    <div class="rank-cat-list">${tabsHtml}</div>
-    <div id="ranking-list" class="ranking-list"><p class="empty-msg">読み込み中…</p></div>
-  `;
-  loadPlayerNickname();
-  document.getElementById('nickname-save-btn').addEventListener('click', saveNickname);
-  wrap.querySelectorAll('.rank-cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchRankingCategory(btn.dataset.cat));
-  });
-
-  const cat = RANKING_CATEGORIES.find(c => c.id === rankingCategory);
-  fbDb.collection('players').orderBy(cat.id, 'desc').limit(30).get().then(snap => {
-    const listEl = document.getElementById('ranking-list');
-    if (!listEl) return;
-    if (snap.empty) { listEl.innerHTML = '<p class="empty-msg">まだ誰もランクインしていません。</p>'; return; }
-    let rank = 0;
-    listEl.innerHTML = snap.docs.map(doc => {
-      rank++;
-      const d = doc.data();
-      const isMe = doc.id === playerUid;
-      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-      return `<div class="rank-row${isMe ? ' me' : ''}"><span class="rank-medal">${medal}</span><span class="rank-name">${escapeHtml(d.nickname || '名無しの釣り人')}</span><span class="rank-value">${cat.fmt(d[cat.id] || 0)}</span></div>`;
-    }).join('');
-  }).catch(err => {
-    const listEl = document.getElementById('ranking-list');
-    if (listEl) listEl.innerHTML = '<p class="empty-msg">読み込みに失敗しました。</p>';
-    console.warn(err);
-  });
+  }, { merge: true }).catch(err => console.warn('プレゼンス送信失敗', err));
 }
 
 function retryConnection() {
@@ -234,6 +167,10 @@ function renderTrade() {
   }
 
   wrap.innerHTML = `
+    <div class="nickname-row">
+      <input id="nickname-input" maxlength="16" placeholder="ニックネーム">
+      <button id="nickname-save-btn" class="buy-btn">保存</button>
+    </div>
     <p class="sub-desc">送りたい絵文字を選んでから、オンラインのプレイヤーに「送る」を押してください。拠点に置いていない絵文字のみ送れます。</p>
     <h3>📤 送る絵文字を選ぶ</h3>
     <div id="trade-inventory" class="fish-grid"></div>
@@ -244,6 +181,8 @@ function renderTrade() {
     <h3>📨 送信中のトレード</h3>
     <div id="trade-outgoing-list" class="ranking-list"></div>
   `;
+  loadPlayerNickname();
+  document.getElementById('nickname-save-btn').addEventListener('click', saveNickname);
   renderTradeInventory();
   loadOnlinePlayers();
   renderIncomingTrades();
@@ -316,6 +255,8 @@ function sendTradeToPlayer(targetUid, targetNickname) {
   }).then(() => {
     state.inventory.splice(idx, 1);
     selectedTradeFishId = null;
+    state.stats.tradesSent = (state.stats.tradesSent || 0) + 1;
+    checkAchievements();
     save();
     renderAll();
     flashMessage(`🎁 ${targetNickname} さんに ${fish.emoji} を送りました`);
@@ -366,6 +307,7 @@ function respondTrade(tradeId, accept) {
   if (accept) {
     const item = { id: nextId(), rarityId: trade.fish.rarityId, emoji: trade.fish.emoji, value: trade.fish.value, mutationId: trade.fish.mutationId };
     state.inventory.push(item);
+    state.stats.tradesReceived = (state.stats.tradesReceived || 0) + 1;
     checkAchievements();
     save();
     renderAll();
@@ -452,6 +394,7 @@ function claimGift(gift, giftId) {
   const item = { id: nextId(), rarityId: gift.rarityId, emoji: gift.emoji, value: gift.value, mutationId: gift.mutationId || 'none' };
   state.inventory.push(item);
   if (typeof recordDex === 'function') recordDex(item);
+  state.stats.giftsReceived = (state.stats.giftsReceived || 0) + 1;
   state.claimedGiftIds.push(giftId);
   if (state.claimedGiftIds.length > 30) state.claimedGiftIds = state.claimedGiftIds.slice(-30);
   if (typeof checkAchievements === 'function') checkAchievements();
@@ -516,13 +459,6 @@ function renderAdminPanel() {
 
       <hr class="admin-divider">
       <div class="admin-section-header">
-        <span>🏆 ランキング管理</span>
-        <button id="admin-clear-ranking-btn" class="admin-danger-btn">🗑️ 全削除</button>
-      </div>
-      <div id="admin-ranking-list" class="admin-list"></div>
-
-      <hr class="admin-divider">
-      <div class="admin-section-header">
         <span>🔄 トレード管理</span>
         <button id="admin-clear-trades-btn" class="admin-danger-btn">🗑️ 全削除</button>
       </div>
@@ -532,10 +468,8 @@ function renderAdminPanel() {
     `;
     document.getElementById('broadcast-send-btn').addEventListener('click', sendBroadcast);
     document.getElementById('broadcast-gift-rarity').addEventListener('change', updateGiftEmojiOptions);
-    document.getElementById('admin-clear-ranking-btn').addEventListener('click', adminClearAllPlayers);
     document.getElementById('admin-clear-trades-btn').addEventListener('click', adminClearAllTrades);
     document.getElementById('admin-logout-btn').addEventListener('click', () => fbAuth.signOut());
-    loadAdminRankingList();
     loadAdminTradesList();
   } else {
     body.innerHTML = `
@@ -559,46 +493,6 @@ function adminLogin() {
   fbAuth.signInWithEmailAndPassword(email, password).catch(err => {
     errEl.textContent = 'ログインに失敗しました: ' + err.message;
   });
-}
-
-// ---------- 管理者: ランキング管理 ----------
-function loadAdminRankingList() {
-  const wrap = document.getElementById('admin-ranking-list');
-  if (!wrap) return;
-  wrap.innerHTML = '<p class="empty-msg">読み込み中…</p>';
-  fbDb.collection('players').orderBy('totalCoinsEarned', 'desc').limit(50).get().then(snap => {
-    if (!document.getElementById('admin-ranking-list')) return;
-    if (snap.empty) { wrap.innerHTML = '<p class="empty-msg">ランキングは空です。</p>'; return; }
-    wrap.innerHTML = snap.docs.map(d => {
-      const data = d.data();
-      const name = escapeHtml(data.nickname || '名無しの釣り人');
-      const coins = Math.floor(data.totalCoinsEarned || 0).toLocaleString();
-      return `<div class="admin-row"><span class="admin-row-name">${name}</span><span class="admin-row-value">${coins}💰</span><button class="admin-del-btn" data-uid="${d.id}">削除</button></div>`;
-    }).join('');
-    wrap.querySelectorAll('.admin-del-btn').forEach(btn => {
-      btn.addEventListener('click', () => adminDeletePlayer(btn.dataset.uid));
-    });
-  }).catch(err => {
-    if (wrap) wrap.innerHTML = '<p class="empty-msg">読み込みに失敗しました。</p>';
-    console.warn('管理者ランキング取得エラー', err);
-  });
-}
-
-function adminDeletePlayer(uid) {
-  fbDb.collection('players').doc(uid).delete().then(() => {
-    flashMessage('ランキングから削除しました');
-    loadAdminRankingList();
-  }).catch(err => flashMessage('削除失敗: ' + err.message));
-}
-
-function adminClearAllPlayers() {
-  if (!confirm('本当に全ランキングを削除しますか？この操作は取り消せません。')) return;
-  fbDb.collection('players').get().then(snap =>
-    Promise.all(snap.docs.map(d => d.ref.delete()))
-  ).then(() => {
-    flashMessage('全ランキングを削除しました');
-    loadAdminRankingList();
-  }).catch(err => flashMessage('削除失敗: ' + err.message));
 }
 
 // ---------- 管理者: トレード管理 ----------
