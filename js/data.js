@@ -73,6 +73,7 @@ const FISH_NAMES = {
   '🍕': 'ピザ',
   '🎉': '配布記念クラッカー',
   '🦕': '恐竜',
+  '🐵': 'サル',
 };
 
 // 全絵文字リスト（図鑑表示用、レアリティ順）。図鑑達成率(%)の分母もこれ。
@@ -83,6 +84,7 @@ const ALL_FISH = RARITIES.flatMap(r => FISH_POOL[r.id].map(emoji => ({ emoji, ra
 const EXCLUSIVE_FISH = [
   { emoji: '🎉', rarityId: 'legendary' },
   { emoji: '🦕', rarityId: 'epic' },
+  { emoji: '🐵', rarityId: 'uncommon' },
 ];
 
 // 変異（ミューテーション）定義：低確率で付与され、価値が跳ね上がる特殊個体
@@ -216,8 +218,9 @@ const ACHIEVEMENTS = [
 ];
 
 // 更新履歴
-const VERSION = '1.8.2';
+const VERSION = '1.8.3';
 const CHANGELOG = [
+  { version: '1.8.3', date: '2026-08-17', notes: ['新しい配布限定キャラ「🐵 サル」を追加（管理者パネルから配布可能）'] },
   { version: '1.8.2', date: '2026-08-17', notes: ['新しい配布限定キャラ「🦕 恐竜」を追加（管理者パネルから配布可能）'] },
   { version: '1.8.1', date: '2026-08-17', notes: ['新しい絵文字「🍕 ピザ」（レア）を追加'] },
   { version: '1.8.0', date: '2026-08-17', notes: ['管理者パネルから絵文字（キャラクター）を全ユーザーに配布できるように。レアリティ・種類・変異（金/虹）を指定して配布でき、受け取りは1人1回まで'] },
