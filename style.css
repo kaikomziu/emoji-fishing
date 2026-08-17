@@ -207,6 +207,27 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 }
 .admin-error { color: #dc2626; font-size: 0.8rem; margin-top: 8px; }
 
+.admin-divider { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
+.admin-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 700; font-size: 0.85rem; margin-bottom: 8px;
+}
+.admin-danger-btn {
+  border: 1px solid #dc2626; background: #fff; color: #dc2626; border-radius: 999px;
+  padding: 4px 10px; font-size: 0.72rem; font-weight: 700; cursor: pointer;
+}
+.admin-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.admin-row {
+  display: flex; align-items: center; gap: 8px; background: #f9fafb;
+  border-radius: 8px; padding: 6px 10px; font-size: 0.78rem;
+}
+.admin-row-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-row-value { color: var(--sea-dark); font-weight: 700; flex-shrink: 0; }
+.admin-del-btn {
+  border: none; background: none; color: #dc2626; text-decoration: underline;
+  font-size: 0.75rem; cursor: pointer; flex-shrink: 0;
+}
+
 /* 拠点グリッド */
 .base-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 20px; }
 .base-slot {
@@ -236,11 +257,13 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 .shop-lv { color: var(--sea-dark); font-size: 0.85rem; }
 .shop-desc { font-size: 0.78rem; color: var(--sub); margin-top: 2px; }
 .shop-effect { font-size: 0.75rem; color: var(--accent); margin-top: 4px; font-weight: 600; }
+.shop-btns { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 .buy-btn {
   flex-shrink: 0; border: none; border-radius: 999px; padding: 10px 16px;
   background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
-  box-shadow: 0 3px 0 #b45309;
+  box-shadow: 0 3px 0 #b45309; white-space: nowrap;
 }
+.buy-max-btn { background: var(--sea); box-shadow: 0 3px 0 var(--sea-dark); font-size: 0.78rem; padding: 8px 12px; }
 .buy-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
 .buy-btn:disabled { background: #d1d5db; box-shadow: none; cursor: default; }
 

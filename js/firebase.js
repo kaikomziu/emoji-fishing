@@ -476,10 +476,29 @@ function renderAdminPanel() {
         <option value="30">30分</option>
       </select>
       <button id="broadcast-send-btn" class="buy-btn admin-send-btn">📢 全員に送信</button>
+
+      <hr class="admin-divider">
+      <div class="admin-section-header">
+        <span>🏆 ランキング管理</span>
+        <button id="admin-clear-ranking-btn" class="admin-danger-btn">🗑️ 全削除</button>
+      </div>
+      <div id="admin-ranking-list" class="admin-list"></div>
+
+      <hr class="admin-divider">
+      <div class="admin-section-header">
+        <span>🔄 トレード管理</span>
+        <button id="admin-clear-trades-btn" class="admin-danger-btn">🗑️ 全削除</button>
+      </div>
+      <div id="admin-trades-list" class="admin-list"></div>
+
       <button id="admin-logout-btn" class="admin-logout-btn">ログアウト</button>
     `;
     document.getElementById('broadcast-send-btn').addEventListener('click', sendBroadcast);
+    document.getElementById('admin-clear-ranking-btn').addEventListener('click', adminClearAllPlayers);
+    document.getElementById('admin-clear-trades-btn').addEventListener('click', adminClearAllTrades);
     document.getElementById('admin-logout-btn').addEventListener('click', () => fbAuth.signOut());
+    loadAdminRankingList();
+    loadAdminTradesList();
   } else {
     body.innerHTML = `
       <p class="sub-desc">管理者アカウントでログインしてください。</p>
@@ -502,6 +521,88 @@ function adminLogin() {
   fbAuth.signInWithEmailAndPassword(email, password).catch(err => {
     errEl.textContent = 'ログインに失敗しました: ' + err.message;
   });
+}
+
+// ---------- 管理者: ランキング管理 ----------
+function loadAdminRankingList() {
+  const wrap = document.getElementById('admin-ranking-list');
+  if (!wrap) return;
+  wrap.innerHTML = '<p class="empty-msg">読み込み中…</p>';
+  fbDb.collection('players').orderBy('totalCoinsEarned', 'desc').limit(50).get().then(snap => {
+    if (!document.getElementById('admin-ranking-list')) return;
+    if (snap.empty) { wrap.innerHTML = '<p class="empty-msg">ランキングは空です。</p>'; return; }
+    wrap.innerHTML = snap.docs.map(d => {
+      const data = d.data();
+      const name = escapeHtml(data.nickname || '名無しの釣り人');
+      const coins = Math.floor(data.totalCoinsEarned || 0).toLocaleString();
+      return `<div class="admin-row"><span class="admin-row-name">${name}</span><span class="admin-row-value">${coins}💰</span><button class="admin-del-btn" data-uid="${d.id}">削除</button></div>`;
+    }).join('');
+    wrap.querySelectorAll('.admin-del-btn').forEach(btn => {
+      btn.addEventListener('click', () => adminDeletePlayer(btn.dataset.uid));
+    });
+  }).catch(err => {
+    if (wrap) wrap.innerHTML = '<p class="empty-msg">読み込みに失敗しました。</p>';
+    console.warn('管理者ランキング取得エラー', err);
+  });
+}
+
+function adminDeletePlayer(uid) {
+  fbDb.collection('players').doc(uid).delete().then(() => {
+    flashMessage('ランキングから削除しました');
+    loadAdminRankingList();
+  }).catch(err => flashMessage('削除失敗: ' + err.message));
+}
+
+function adminClearAllPlayers() {
+  if (!confirm('本当に全ランキングを削除しますか？この操作は取り消せません。')) return;
+  fbDb.collection('players').get().then(snap =>
+    Promise.all(snap.docs.map(d => d.ref.delete()))
+  ).then(() => {
+    flashMessage('全ランキングを削除しました');
+    loadAdminRankingList();
+  }).catch(err => flashMessage('削除失敗: ' + err.message));
+}
+
+// ---------- 管理者: トレード管理 ----------
+function loadAdminTradesList() {
+  const wrap = document.getElementById('admin-trades-list');
+  if (!wrap) return;
+  wrap.innerHTML = '<p class="empty-msg">読み込み中…</p>';
+  fbDb.collection('trades').limit(50).get().then(snap => {
+    if (!document.getElementById('admin-trades-list')) return;
+    if (snap.empty) { wrap.innerHTML = '<p class="empty-msg">トレードはありません。</p>'; return; }
+    wrap.innerHTML = snap.docs.map(d => {
+      const t = d.data();
+      const emoji = t.fish ? t.fish.emoji : '？';
+      const from = escapeHtml(t.fromNickname || '?');
+      const to = escapeHtml(t.toNickname || '?');
+      const status = escapeHtml(t.status || '?');
+      return `<div class="admin-row"><span class="admin-row-name">${emoji} ${from} → ${to}（${status}）</span><button class="admin-del-btn" data-id="${d.id}">削除</button></div>`;
+    }).join('');
+    wrap.querySelectorAll('.admin-del-btn').forEach(btn => {
+      btn.addEventListener('click', () => adminDeleteTrade(btn.dataset.id));
+    });
+  }).catch(err => {
+    if (wrap) wrap.innerHTML = '<p class="empty-msg">読み込みに失敗しました。</p>';
+    console.warn('管理者トレード取得エラー', err);
+  });
+}
+
+function adminDeleteTrade(id) {
+  fbDb.collection('trades').doc(id).delete().then(() => {
+    flashMessage('トレードを削除しました');
+    loadAdminTradesList();
+  }).catch(err => flashMessage('削除失敗: ' + err.message));
+}
+
+function adminClearAllTrades() {
+  if (!confirm('本当に全トレードを削除しますか？この操作は取り消せません。')) return;
+  fbDb.collection('trades').get().then(snap =>
+    Promise.all(snap.docs.map(d => d.ref.delete()))
+  ).then(() => {
+    flashMessage('全トレードを削除しました');
+    loadAdminTradesList();
+  }).catch(err => flashMessage('削除失敗: ' + err.message));
 }
 
 function sendBroadcast() {

@@ -240,12 +240,30 @@ function renderHome() {
     `拠点マス: ${state.slots.filter(s => s).length} / ${state.slots.length}　合計 +${coinsPerSec().toLocaleString()} コイン/秒`;
 }
 
+// 現在のレベルからコインが尽きる（または上限に達する）まで何レベル買えるか計算する
+function calcMaxBuyable(key) {
+  const def = UPGRADES[key];
+  const cap = getShopLevelCap(state.rebornCount || 0);
+  let level = key === 'rod' ? state.rodLevel : key === 'luck' ? state.luckLevel : state.baseLevel;
+  let coinsLeft = state.coins;
+  let levels = 0, totalCost = 0;
+  while (level + levels < cap) {
+    const cost = upgradeCost(def.baseCost, level + levels, def.growth);
+    if (coinsLeft < cost) break;
+    coinsLeft -= cost;
+    totalCost += cost;
+    levels++;
+  }
+  return { levels, totalCost };
+}
+
 function upgradeRow(key) {
   const def = UPGRADES[key];
   const level = key === 'rod' ? state.rodLevel : key === 'luck' ? state.luckLevel : state.baseLevel;
   const cap = getShopLevelCap(state.rebornCount || 0);
   const atCap = level >= cap;
   const cost = upgradeCost(def.baseCost, level, def.growth);
+  const max = atCap ? { levels: 0, totalCost: 0 } : calcMaxBuyable(key);
   const row = document.createElement('div');
   row.className = 'shop-row';
   let effectText = '';
@@ -263,9 +281,15 @@ function upgradeRow(key) {
       <div class="shop-desc">${def.desc}</div>
       <div class="shop-effect">${atCap ? 'レベル上限に到達（リボーンで上限アップ）' : effectText}</div>
     </div>
-    <button class="buy-btn" ${(atCap || state.coins < cost) ? 'disabled' : ''}>${atCap ? 'MAX' : '💰 ' + cost.toLocaleString()}</button>
+    <div class="shop-btns">
+      <button class="buy-btn" ${(atCap || state.coins < cost) ? 'disabled' : ''}>${atCap ? 'MAX' : '💰 ' + cost.toLocaleString()}</button>
+      <button class="buy-btn buy-max-btn" ${(atCap || max.levels === 0) ? 'disabled' : ''}>⬆️ 一括+${max.levels}（💰${max.totalCost.toLocaleString()}）</button>
+    </div>
   `;
-  if (!atCap) row.querySelector('.buy-btn').addEventListener('click', () => buyUpgrade(key, cost));
+  if (!atCap) {
+    row.querySelector('.buy-btn').addEventListener('click', () => buyUpgrade(key, cost));
+    row.querySelector('.buy-max-btn').addEventListener('click', () => buyUpgradeMax(key));
+  }
   return row;
 }
 
@@ -459,7 +483,9 @@ function autoPlaceBest() {
 }
 
 function buyUpgrade(key, cost) {
-  if (state.coins < cost) return;
+  const cap = getShopLevelCap(state.rebornCount || 0);
+  const level = key === 'rod' ? state.rodLevel : key === 'luck' ? state.luckLevel : state.baseLevel;
+  if (state.coins < cost || level >= cap) return;
   state.coins -= cost;
   if (key === 'rod') state.rodLevel++;
   if (key === 'luck') state.luckLevel++;
@@ -467,6 +493,23 @@ function buyUpgrade(key, cost) {
   checkAchievements();
   save();
   renderAll();
+}
+
+// 買えるだけ一括でレベルアップする
+function buyUpgradeMax(key) {
+  const max = calcMaxBuyable(key);
+  if (max.levels === 0) {
+    flashMessage('コインが足りません');
+    return;
+  }
+  state.coins -= max.totalCost;
+  if (key === 'rod') state.rodLevel += max.levels;
+  if (key === 'luck') state.luckLevel += max.levels;
+  if (key === 'base') { state.baseLevel += max.levels; initSlots(); }
+  checkAchievements();
+  save();
+  renderAll();
+  flashMessage(`⬆️ ${UPGRADES[key].name} を${max.levels}レベル一括アップグレード！`);
 }
 
 function flashMessage(msg) {
