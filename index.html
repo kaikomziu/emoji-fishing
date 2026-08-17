@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>絵文字フィッシング</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎣</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="flash-msg"></div>
+
+<header class="app-header">
+  <h1>🎣 絵文字フィッシング</h1>
+  <div class="stat-bar">
+    <div class="stat-item">💰 <span id="stat-coins">0</span></div>
+    <div class="stat-item">(+<span id="stat-cps">0</span>/秒)</div>
+    <div class="stat-item">🎣Lv<span id="stat-rod">0</span></div>
+    <div class="stat-item">🍀Lv<span id="stat-luck">0</span></div>
+  </div>
+</header>
+
+<main>
+  <!-- 海 -->
+  <section id="panel-sea" class="tab-panel active">
+    <h2>🌊 海</h2>
+    <p class="sub-desc" id="rod-info"></p>
+    <div class="cast-area">
+      <button id="cast-btn">🎣 竿を投げる</button>
+      <div class="progress-track"><div id="cast-progress" class="progress-fill"></div></div>
+    </div>
+    <div id="catch-result" class="catch-result"></div>
+    <h3>釣果ログ</h3>
+    <div id="catch-log" class="catch-log"></div>
+  </section>
+
+  <!-- ホーム -->
+  <section id="panel-home" class="tab-panel">
+    <h2>🏠 ホーム（拠点）</h2>
+    <p id="base-summary" class="sub-desc"></p>
+    <div id="base-slots" class="base-grid"></div>
+
+    <h3>手持ちの絵文字</h3>
+    <div id="inventory-list" class="fish-grid"></div>
+  </section>
+
+  <!-- ショップ -->
+  <section id="panel-shop" class="tab-panel">
+    <h2>🛒 ショップ</h2>
+    <p class="sub-desc">コインを使って釣りの性能を強化しよう</p>
+    <div id="shop-list" class="shop-list"></div>
+  </section>
+
+  <!-- 図鑑 -->
+  <section id="panel-dex" class="tab-panel">
+    <h2>📖 図鑑</h2>
+    <p id="dex-summary" class="sub-desc"></p>
+    <div id="dex-grid" class="dex-grid"></div>
+  </section>
+</main>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="sea">🌊<br>海</button>
+  <button class="tab-btn" data-tab="home">🏠<br>ホーム</button>
+  <button class="tab-btn" data-tab="shop">🛒<br>ショップ</button>
+  <button class="tab-btn" data-tab="dex">📖<br>図鑑</button>
+</nav>
+
+<footer class="app-footer"><span id="game-version"></span></footer>
+
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
