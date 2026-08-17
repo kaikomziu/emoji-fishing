@@ -117,6 +117,26 @@
   </div>
 </div>
 
+<div id="sell-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>💰 売却</h3>
+      <button id="sell-close" class="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="sell-modal-info" class="sell-info"></div>
+      <div class="sell-qty-row">
+        <button id="sell-qty-minus" class="qty-btn">－</button>
+        <input id="sell-qty-input" type="number" min="1" value="1" inputmode="numeric">
+        <button id="sell-qty-plus" class="qty-btn">＋</button>
+        <button id="sell-qty-max" class="qty-max-btn">MAX</button>
+      </div>
+      <div id="sell-total" class="sell-total"></div>
+      <button id="sell-confirm-btn" class="buy-btn admin-send-btn">この数を売る</button>
+    </div>
+  </div>
+</div>
+
 <div id="settings-modal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">

@@ -288,6 +288,14 @@ function renderHome() {
       tag.className = 'place-tag';
       tag.textContent = g.count > 1 ? `タップで1匹設置（残り${g.count}匹）` : 'タップで設置';
       card.appendChild(tag);
+      const sellBtn = document.createElement('button');
+      sellBtn.className = 'sell-mini-btn';
+      sellBtn.textContent = '💰売る';
+      sellBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        openSellModal(g.sample.emoji, g.sample.mutationId);
+      });
+      card.appendChild(sellBtn);
       invWrap.appendChild(card);
     });
   }
@@ -549,6 +557,106 @@ function unplaceFish(idx) {
   renderAll();
 }
 
+// ---------- 手動売却 ----------
+let sellTarget = null; // { emoji, mutationId }
+
+function getSellCandidates() {
+  if (!sellTarget) return [];
+  return state.inventory.filter(f => f.emoji === sellTarget.emoji && f.mutationId === sellTarget.mutationId);
+}
+
+function openSellModal(emoji, mutationId) {
+  sellTarget = { emoji, mutationId };
+  document.getElementById('sell-modal').classList.add('show');
+  renderSellModal();
+}
+
+function closeSellModal() {
+  document.getElementById('sell-modal').classList.remove('show');
+  sellTarget = null;
+}
+
+function renderSellModal() {
+  const candidates = getSellCandidates();
+  if (candidates.length === 0) { closeSellModal(); return; }
+  const sampleItem = candidates[0];
+  const rarity = rarityById(sampleItem.rarityId);
+  const mutation = mutationById(sampleItem.mutationId);
+  const isMutant = mutation.id !== 'none';
+  const label = isMutant ? `${mutation.badge}${mutation.name}${rarity.name}` : rarity.name;
+
+  document.getElementById('sell-modal-info').innerHTML = `
+    <div class="sell-preview">
+      <div class="fish-emoji">${isMutant ? mutation.badge : ''}${sampleItem.emoji}</div>
+      <div>${FISH_NAMES[sampleItem.emoji] || ''}（${label}）</div>
+      <div class="sub-desc">単価 💰${sampleItem.value.toLocaleString()} ／ 所持数 ${candidates.length}匹</div>
+    </div>
+  `;
+
+  const input = document.getElementById('sell-qty-input');
+  input.max = candidates.length;
+  let qty = Math.max(1, Math.min(candidates.length, Number(input.value) || 1));
+  input.value = qty;
+  updateSellTotal();
+}
+
+function clampSellQty() {
+  const candidates = getSellCandidates();
+  const input = document.getElementById('sell-qty-input');
+  let qty = Math.floor(Number(input.value));
+  if (isNaN(qty)) qty = 1;
+  qty = Math.max(1, Math.min(candidates.length, qty));
+  input.value = qty;
+  return qty;
+}
+
+function updateSellTotal() {
+  const candidates = getSellCandidates();
+  if (candidates.length === 0) { closeSellModal(); return; }
+  const qty = clampSellQty();
+  const total = qty * candidates[0].value;
+  document.getElementById('sell-total').textContent = `合計: 💰${total.toLocaleString()}`;
+}
+
+function adjustSellQty(delta) {
+  const input = document.getElementById('sell-qty-input');
+  input.value = (Number(input.value) || 1) + delta;
+  updateSellTotal();
+}
+
+function setSellQtyMax() {
+  const input = document.getElementById('sell-qty-input');
+  input.value = getSellCandidates().length;
+  updateSellTotal();
+}
+
+function confirmSell() {
+  const candidates = getSellCandidates();
+  if (!sellTarget || candidates.length === 0) return;
+  const qty = clampSellQty();
+  const unitValue = candidates[0].value;
+  const emoji = sellTarget.emoji;
+  const mutationId = sellTarget.mutationId;
+
+  let removed = 0;
+  state.inventory = state.inventory.filter(f => {
+    if (removed < qty && f.emoji === emoji && f.mutationId === mutationId) {
+      removed++;
+      return false;
+    }
+    return true;
+  });
+
+  const total = removed * unitValue;
+  state.coins += total;
+  state.stats.totalCoinsEarned += total;
+  checkAchievements();
+  save();
+  closeSellModal();
+  renderAll();
+  flashMessage(`💰 ${emoji} を${removed}匹売って +${total.toLocaleString()}コイン獲得！`);
+}
+
 // 手持ち＋拠点の絵文字をまとめて価値順に並べ替え、一番価値の高いものから拠点に設置する
 function autoPlaceBest() {
   const capacity = state.slots.length;
@@ -716,6 +824,15 @@ function init() {
     if (e.target.id === 'settings-modal') closeSettingsModal();
   });
   document.getElementById('light-mode-checkbox').addEventListener('change', e => toggleLightMode(e.target.checked));
+  document.getElementById('sell-close').addEventListener('click', closeSellModal);
+  document.getElementById('sell-modal').addEventListener('click', e => {
+    if (e.target.id === 'sell-modal') closeSellModal();
+  });
+  document.getElementById('sell-qty-minus').addEventListener('click', () => adjustSellQty(-1));
+  document.getElementById('sell-qty-plus').addEventListener('click', () => adjustSellQty(1));
+  document.getElementById('sell-qty-max').addEventListener('click', setSellQtyMax);
+  document.getElementById('sell-qty-input').addEventListener('input', updateSellTotal);
+  document.getElementById('sell-confirm-btn').addEventListener('click', confirmSell);
   renderAll();
   if (state.autoFish) castRod(); // 前回終了時に自動釣りONだったら再開
   setInterval(tick, 1000);

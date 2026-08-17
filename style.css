@@ -110,6 +110,18 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
   background: linear-gradient(135deg, #fca5a5, #fcd34d, #86efac, #93c5fd, #d8b4fe);
 }
 
+/* アルティメット専用の特別演出（レアリティ最上位） */
+.rarity-ultimate {
+  background: linear-gradient(135deg, #fff7cc, #fde68a, #fef3c7, #fde68a);
+  background-size: 300% 300%;
+  animation: pop 0.35s ease, ultimate-shimmer 2.2s linear infinite;
+  box-shadow: 0 0 10px 2px rgba(250, 204, 21, 0.6) !important;
+}
+@keyframes ultimate-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 /* 図鑑 */
 .dex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
 .dex-cell {
@@ -220,12 +232,40 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
 .autosell-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .autosell-row { font-size: 0.85rem; }
 
+/* 手動売却 */
+.sell-mini-btn {
+  display: block; width: 100%; margin-top: 4px; border: none; border-radius: 999px;
+  background: #16a34a; color: #fff; font-size: 0.62rem; font-weight: 700;
+  padding: 2px 6px; cursor: pointer;
+}
+.sell-preview { text-align: center; margin-bottom: 14px; }
+.sell-preview .fish-emoji { font-size: 2.2rem; }
+.sell-qty-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+.qty-btn {
+  width: 40px; height: 40px; border-radius: 10px; border: none; background: var(--sea);
+  color: #fff; font-size: 1.2rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
+}
+#sell-qty-input {
+  width: 80px; text-align: center; padding: 10px 4px; border-radius: 10px;
+  border: 1px solid #d1d5db; font-size: 1rem;
+}
+.qty-max-btn {
+  border: 1px solid var(--sea); background: #fff; color: var(--sea-dark);
+  border-radius: 999px; padding: 8px 12px; font-size: 0.78rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
+}
+.sell-total { text-align: center; font-weight: 700; margin: 12px 0; font-size: 1rem; }
+
 /* 軽量モード: アニメーション・演出を止めて動作を軽くする */
 body.light-mode .fish-card,
 body.light-mode .base-slot.filled,
 body.light-mode .dex-cell.found,
 body.light-mode .theme-card {
   animation: none !important;
+}
+body.light-mode .rarity-ultimate {
+  animation: none !important;
+  background: #fef3c7 !important;
+  box-shadow: 0 0 0 2px #facc15 !important;
 }
 body.light-mode .fish-card.mutant,
 body.light-mode .base-slot.mutant {
