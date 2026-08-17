@@ -652,7 +652,11 @@ function updateGiftEmojiOptions() {
     return;
   }
   const pool = FISH_POOL[rarityId] || [];
-  emojiSelect.innerHTML = pool.map(e => `<option value="${e}">${e} ${FISH_NAMES[e] || ''}</option>`).join('');
+  const exclusives = EXCLUSIVE_FISH.filter(f => f.rarityId === rarityId).map(f => f.emoji);
+  const normalOptions = pool.map(e => `<option value="${e}">${e} ${FISH_NAMES[e] || ''}</option>`).join('');
+  const exclusiveOptions = exclusives.map(e => `<option value="${e}">🎁限定 ${e} ${FISH_NAMES[e] || ''}</option>`).join('');
+  emojiSelect.innerHTML = normalOptions +
+    (exclusives.length ? `<optgroup label="配布限定（釣りでは出ません）">${exclusiveOptions}</optgroup>` : '');
   emojiSelect.style.display = '';
   mutationSelect.style.display = '';
 }

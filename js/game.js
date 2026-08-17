@@ -366,13 +366,11 @@ function renderShop() {
   wrap.appendChild(upgradeRow('base'));
 }
 
-function renderDex() {
-  const wrap = document.getElementById('dex-grid');
+function renderDexGrid(containerId, fishList) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
   wrap.innerHTML = '';
-  const discovered = ALL_FISH.filter(f => state.dex[f.emoji]).length;
-  document.getElementById('dex-summary').textContent = `発見数: ${discovered} / ${ALL_FISH.length}`;
-
-  ALL_FISH.forEach(f => {
+  fishList.forEach(f => {
     const rarity = rarityById(f.rarityId);
     const entry = state.dex[f.emoji];
     const cell = document.createElement('div');
@@ -394,6 +392,18 @@ function renderDex() {
     }
     wrap.appendChild(cell);
   });
+}
+
+function renderDex() {
+  const discovered = ALL_FISH.filter(f => state.dex[f.emoji]).length;
+  document.getElementById('dex-summary').textContent = `発見数: ${discovered} / ${ALL_FISH.length}`;
+  renderDexGrid('dex-grid', ALL_FISH);
+
+  if (EXCLUSIVE_FISH.length > 0) {
+    const exDiscovered = EXCLUSIVE_FISH.filter(f => state.dex[f.emoji]).length;
+    document.getElementById('dex-exclusive-summary').textContent = `発見数: ${exDiscovered} / ${EXCLUSIVE_FISH.length}`;
+    renderDexGrid('dex-exclusive-grid', EXCLUSIVE_FISH);
+  }
 }
 
 function renderAchievements() {
