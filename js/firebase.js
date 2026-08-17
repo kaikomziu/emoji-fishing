@@ -8,6 +8,11 @@ const RANKING_CATEGORIES = [
   { id: 'totalCatches',     label: '釣った匹数', fmt: v => Math.floor(v).toLocaleString() + ' 匹' },
 ];
 
+// ローカル検証環境（開発用プレビューサーバー）からはランキング登録・トレードのオンライン表示を一切行わない。
+// 本番公開先（GitHub Pages）以外での動作確認が、公開中のランキングやトレードを汚さないようにするための安全策。
+const IS_TEST_ENV = (typeof location !== 'undefined') &&
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:');
+
 let fbApp = null, fbAuth = null, fbDb = null;
 let fbReady = false;
 let playerUid = null;
@@ -101,6 +106,7 @@ function loadPlayerNickname() {
 
 function saveNickname() {
   if (!fbDb || !playerUid) return;
+  if (IS_TEST_ENV) { flashMessage('テスト環境のためランキングへは保存されません'); return; }
   const input = document.getElementById('nickname-input');
   const nickname = (input.value || '').trim().slice(0, 16) || '名無しの釣り人';
   input.value = nickname;
@@ -109,7 +115,7 @@ function saveNickname() {
 }
 
 function syncRanking(force) {
-  if (!fbReady || !playerUid) return;
+  if (!fbReady || !playerUid || IS_TEST_ENV) return;
   const now = Date.now();
   if (!force && now - lastSyncAt < 8000) return; // 8秒に1回まで
   lastSyncAt = now;
@@ -287,6 +293,7 @@ function loadOnlinePlayers() {
 }
 
 function sendTradeToPlayer(targetUid, targetNickname) {
+  if (IS_TEST_ENV) { flashMessage('テスト環境のためトレードは送信されません'); return; }
   if (!selectedTradeFishId) { flashMessage('送る絵文字を選んでください'); return; }
   const idx = state.inventory.findIndex(f => f.id === selectedTradeFishId);
   if (idx === -1) { flashMessage('その絵文字は見つかりませんでした'); return; }
@@ -312,7 +319,7 @@ function sendTradeToPlayer(targetUid, targetNickname) {
 }
 
 function listenIncomingTrades() {
-  if (incomingTradesUnsub || !fbDb || !playerUid) return;
+  if (incomingTradesUnsub || !fbDb || !playerUid || IS_TEST_ENV) return;
   incomingTradesUnsub = fbDb.collection('trades').where('toUid', '==', playerUid)
     .onSnapshot(snap => {
       pendingIncomingTrades = snap.docs
@@ -365,7 +372,7 @@ function respondTrade(tradeId, accept) {
 }
 
 function listenOutgoingTrades() {
-  if (outgoingTradesUnsub || !fbDb || !playerUid) return;
+  if (outgoingTradesUnsub || !fbDb || !playerUid || IS_TEST_ENV) return;
   outgoingTradesUnsub = fbDb.collection('trades').where('fromUid', '==', playerUid)
     .onSnapshot(snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
