@@ -15,6 +15,7 @@ let rankingCategory = 'totalCoinsEarned';
 let liveEvent = null; // { message, luckMultiplier, expiresAt }
 let lastSyncAt = 0;
 let adminUser = null;
+let authError = null;
 
 // トレード関連
 let selectedTradeFishId = null;
@@ -45,24 +46,38 @@ function initFirebase() {
   fbDb = firebase.firestore();
   fbReady = true;
 
-  // プレイヤーは匿名認証で識別（ランキング投稿用）
+  // サインイン中は誰でも「プレイヤー」としてランキング・トレードを使える（管理者アカウントでログイン中でも同様）
   fbAuth.onAuthStateChanged(user => {
     if (user) {
+      playerUid = user.uid;
+      loadPlayerNickname();
+      syncRanking(true);
+      listenIncomingTrades();
+      listenOutgoingTrades();
       if (user.email === ADMIN_EMAIL) {
-        adminUser = user; // 管理者としてログイン中
+        adminUser = user; // 管理者メニューも同時に使える
         renderAdminPanel();
       } else {
-        playerUid = user.uid;
-        loadPlayerNickname();
-        syncRanking(true);
-        listenIncomingTrades();
-        listenOutgoingTrades();
+        adminUser = null;
       }
     } else {
       // 未サインインなら匿名サインインする（管理者ログアウト直後も含む）
-      fbAuth.signInAnonymously().catch(err => console.warn('匿名サインイン失敗', err));
+      playerUid = null;
+      fbAuth.signInAnonymously().catch(err => {
+        console.warn('匿名サインイン失敗', err);
+        authError = err.message || '認証に失敗しました';
+        if (typeof renderAll === 'function') renderAll();
+      });
     }
   });
+
+  // 10秒たっても接続できなければ「接続中…」で固まらないようにエラー表示に切り替える
+  setTimeout(() => {
+    if (!playerUid && !authError) {
+      authError = '接続がタイムアウトしました';
+      if (typeof renderAll === 'function') renderAll();
+    }
+  }, 10000);
 
   // 管理者ブロードキャストの購読（全ユーザー共通）
   fbDb.collection('admin').doc('broadcast').onSnapshot(doc => {
@@ -123,7 +138,8 @@ function renderRanking() {
     return;
   }
   if (!fbReady || !playerUid) {
-    wrap.innerHTML = '<p class="empty-msg">接続中…</p>';
+    wrap.innerHTML = connectionStatusHtml();
+    wireRetryButton(wrap);
     return;
   }
 
@@ -165,6 +181,28 @@ function renderRanking() {
   });
 }
 
+function retryConnection() {
+  authError = null;
+  if (typeof renderAll === 'function') renderAll();
+  fbAuth.signInAnonymously().catch(err => {
+    console.warn('匿名サインイン失敗', err);
+    authError = err.message || '認証に失敗しました';
+    if (typeof renderAll === 'function') renderAll();
+  });
+}
+
+function connectionStatusHtml() {
+  if (authError) {
+    return `<p class="empty-msg">接続に失敗しました: ${escapeHtml(authError)}<br><button id="retry-conn-btn" class="buy-btn">🔄 再試行</button></p>`;
+  }
+  return '<p class="empty-msg">接続中…</p>';
+}
+
+function wireRetryButton(wrap) {
+  const btn = wrap.querySelector('#retry-conn-btn');
+  if (btn) btn.addEventListener('click', retryConnection);
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -181,7 +219,8 @@ function renderTrade() {
     return;
   }
   if (!fbReady || !playerUid) {
-    wrap.innerHTML = '<p class="empty-msg">接続中…</p>';
+    wrap.innerHTML = connectionStatusHtml();
+    wireRetryButton(wrap);
     return;
   }
 
@@ -283,7 +322,12 @@ function listenIncomingTrades() {
       if (pendingIncomingTrades.length > 0 && currentTab !== 'trade') {
         flashMessage(`📥 トレードが届いています（${pendingIncomingTrades.length}件）`);
       }
-    }, err => console.warn('受信トレード購読エラー', err));
+    }, err => {
+      // サインイン直後はトークン反映のタイミング差で一時的に権限エラーになることがあるため、少し待って再購読する
+      console.warn('受信トレード購読エラー', err);
+      incomingTradesUnsub = null;
+      setTimeout(listenIncomingTrades, 2000);
+    });
 }
 
 function renderIncomingTrades() {
@@ -331,7 +375,11 @@ function listenOutgoingTrades() {
       });
       outgoingTrades = all.filter(t => t.status === 'pending');
       renderOutgoingTrades();
-    }, err => console.warn('送信済みトレード購読エラー', err));
+    }, err => {
+      console.warn('送信済みトレード購読エラー', err);
+      outgoingTradesUnsub = null;
+      setTimeout(listenOutgoingTrades, 2000);
+    });
 }
 
 function returnDeclinedFish(trade) {
