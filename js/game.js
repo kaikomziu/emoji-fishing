@@ -15,6 +15,7 @@ let state = {
   unlockedThemes: ['default'],
   theme: 'default',
   rebornCount: 0,      // リボーン回数
+  autoFish: false,     // 自動釣りON/OFF（ONの間はクールダウンが2倍になる）
 };
 
 let uidCounter = 1;
@@ -173,12 +174,30 @@ function fishCard(item, opts) {
   return div;
 }
 
+function getEffectiveCooldown() {
+  const { cooldown } = getRodStats(state.rodLevel);
+  return state.autoFish ? cooldown * 2 : cooldown;
+}
+
 function renderSea() {
   const rod = getRodStats(state.rodLevel);
-  document.getElementById('rod-info').textContent = `クールダウン ${(rod.cooldown / 1000).toFixed(1)}秒 / 同時釣果 ${rod.multiCatch}匹`;
+  const cooldown = getEffectiveCooldown();
+  document.getElementById('rod-info').textContent =
+    `クールダウン ${(cooldown / 1000).toFixed(1)}秒${state.autoFish ? '（自動釣り中は2倍）' : ''} / 同時釣果 ${rod.multiCatch}匹`;
   const btn = document.getElementById('cast-btn');
-  btn.disabled = fishing;
-  btn.textContent = fishing ? '釣り中…' : '🎣 竿を投げる';
+  btn.disabled = fishing || state.autoFish;
+  btn.textContent = state.autoFish ? '🤖 自動釣り中…' : (fishing ? '釣り中…' : '🎣 竿を投げる');
+
+  const autoBtn = document.getElementById('auto-fish-btn');
+  autoBtn.textContent = state.autoFish ? '🤖 自動釣り: ON（クールダウン2倍）' : '🤖 自動釣り: OFF';
+  autoBtn.classList.toggle('active', state.autoFish);
+}
+
+function toggleAutoFish() {
+  state.autoFish = !state.autoFish;
+  save();
+  renderSea();
+  if (state.autoFish && !fishing) castRod();
 }
 
 function renderHome() {
@@ -462,7 +481,7 @@ function castRod() {
   if (fishing) return;
   fishing = true;
   renderSea();
-  const { cooldown } = getRodStats(state.rodLevel);
+  const cooldown = getEffectiveCooldown();
   const bar = document.getElementById('cast-progress');
   bar.style.transition = 'none';
   bar.style.width = '0%';
@@ -477,6 +496,7 @@ function castRod() {
     fishing = false;
     save();
     renderAll();
+    if (state.autoFish) castRod(); // 自動釣りONなら続けて次を釣る
   }, cooldown);
 }
 
@@ -543,6 +563,7 @@ function init() {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('cast-btn').addEventListener('click', castRod);
+  document.getElementById('auto-fish-btn').addEventListener('click', toggleAutoFish);
   document.getElementById('auto-place-btn').addEventListener('click', autoPlaceBest);
   document.getElementById('game-version').addEventListener('click', openChangelog);
   document.getElementById('changelog-close').addEventListener('click', closeChangelog);
@@ -555,6 +576,7 @@ function init() {
     if (e.target.id === 'admin-modal') closeAdminModal();
   });
   renderAll();
+  if (state.autoFish) castRod(); // 前回終了時に自動釣りONだったら再開
   setInterval(tick, 1000);
   if (typeof initFirebase === 'function') initFirebase();
 }
