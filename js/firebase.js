@@ -120,6 +120,7 @@ function syncPresence(force) {
   lastPresenceSyncAt = now;
   fbDb.collection('players').doc(playerUid).set({
     lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+    hallOfFame: typeof isHallOfFame === 'function' ? isHallOfFame() : false, // リボーン上限達成（殿堂入り）
   }, { merge: true }).catch(err => console.warn('プレゼンス送信失敗', err));
 }
 
@@ -166,11 +167,14 @@ function renderTrade() {
     return;
   }
 
+  const myBadge = (typeof isHallOfFame === 'function' && isHallOfFame())
+    ? '<p class="sub-desc">💎 殿堂入り済み — オンライン一覧では他プレイヤーにもこのマークが見えます</p>' : '';
   wrap.innerHTML = `
     <div class="nickname-row">
       <input id="nickname-input" maxlength="16" placeholder="ニックネーム">
       <button id="nickname-save-btn" class="buy-btn">保存</button>
     </div>
+    ${myBadge}
     <p class="sub-desc">送りたい絵文字を選んでから、オンラインのプレイヤーに「送る」を押してください。拠点に置いていない絵文字のみ送れます。</p>
     <h3>📤 送る絵文字を選ぶ</h3>
     <div id="trade-inventory" class="fish-grid"></div>
@@ -189,6 +193,8 @@ function renderTrade() {
   renderOutgoingTrades();
 }
 
+let tradeInventoryShowAll = false;
+
 function renderTradeInventory() {
   const wrap = document.getElementById('trade-inventory');
   if (!wrap) return;
@@ -197,13 +203,32 @@ function renderTradeInventory() {
     wrap.innerHTML = '<p class="empty-msg">送れる絵文字がありません。海で釣ってこよう！</p>';
     return;
   }
-  state.inventory.forEach(g => {
+  const sorted = [...state.inventory].sort((a, b) => b.value - a.value);
+  const limit = (typeof INVENTORY_DISPLAY_LIMIT === 'number') ? INVENTORY_DISPLAY_LIMIT : 60;
+  const shouldLimit = !tradeInventoryShowAll && sorted.length > limit;
+  const toShow = shouldLimit ? sorted.slice(0, limit) : sorted;
+
+  toShow.forEach(g => {
     const card = fishCard(g, { count: g.count, onClick: () => selectTradeGroup(g.emoji, g.mutationId) });
     if (selectedTradeGroup && selectedTradeGroup.emoji === g.emoji && selectedTradeGroup.mutationId === g.mutationId) {
       card.classList.add('selected');
     }
     wrap.appendChild(card);
   });
+
+  if (shouldLimit) {
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'buy-btn show-more-btn';
+    moreBtn.textContent = `▼ 他${sorted.length - limit}種類を表示`;
+    moreBtn.addEventListener('click', () => { tradeInventoryShowAll = true; renderTradeInventory(); });
+    wrap.appendChild(moreBtn);
+  } else if (tradeInventoryShowAll && sorted.length > limit) {
+    const lessBtn = document.createElement('button');
+    lessBtn.className = 'buy-btn show-more-btn';
+    lessBtn.textContent = '▲ 表示を減らす';
+    lessBtn.addEventListener('click', () => { tradeInventoryShowAll = false; renderTradeInventory(); });
+    wrap.appendChild(lessBtn);
+  }
 }
 
 function selectTradeGroup(emoji, mutationId) {
@@ -228,8 +253,9 @@ function loadOnlinePlayers() {
     }
     wrap.innerHTML = others.map(d => {
       const data = d.data();
-      const name = escapeHtml(data.nickname || '名無しの釣り人');
-      return `<div class="rank-row"><span class="rank-medal">🟢</span><span class="rank-name">${name}</span><button class="buy-btn trade-send-btn" data-uid="${d.id}" data-name="${name}">🎁 送る</button></div>`;
+      const badge = data.hallOfFame ? '💎 ' : '';
+      const name = badge + escapeHtml(data.nickname || '名無しの釣り人');
+      return `<div class="rank-row"><span class="rank-medal">🟢</span><span class="rank-name">${name}</span><button class="buy-btn trade-send-btn" data-uid="${d.id}" data-name="${escapeHtml(data.nickname || '名無しの釣り人')}">🎁 送る</button></div>`;
     }).join('');
     wrap.querySelectorAll('.trade-send-btn').forEach(btn => {
       btn.addEventListener('click', () => sendTradeToPlayer(btn.dataset.uid, btn.dataset.name));

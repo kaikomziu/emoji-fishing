@@ -297,22 +297,29 @@ function fishCard(item, opts) {
   return div;
 }
 
+// リボーン上限（殿堂入り）に到達すると自動釣りの2倍ペナルティが解除される
+function isHallOfFame() {
+  return (state.rebornCount || 0) >= REBORN_CONFIG.maxRebornCount;
+}
+
 function getEffectiveCooldown() {
   const { cooldown } = getRodStats(state.rodLevel);
-  return state.autoFish ? cooldown * 2 : cooldown;
+  const penalty = state.autoFish && !isHallOfFame();
+  return penalty ? cooldown * 2 : cooldown;
 }
 
 function renderSea() {
   const rod = getRodStats(state.rodLevel);
   const cooldown = getEffectiveCooldown();
+  const penaltyText = state.autoFish ? (isHallOfFame() ? '（💎殿堂入りでペナルティ解除中）' : '（自動釣り中は2倍）') : '';
   document.getElementById('rod-info').textContent =
-    `クールダウン ${(cooldown / 1000).toFixed(1)}秒${state.autoFish ? '（自動釣り中は2倍）' : ''} / 同時釣果 ${rod.multiCatch}匹`;
+    `クールダウン ${(cooldown / 1000).toFixed(1)}秒${penaltyText} / 同時釣果 ${rod.multiCatch}匹`;
   const btn = document.getElementById('cast-btn');
   btn.disabled = fishing || state.autoFish;
   btn.textContent = state.autoFish ? '🤖 自動釣り中…' : (fishing ? '釣り中…' : '🎣 竿を投げる');
 
   const autoBtn = document.getElementById('auto-fish-btn');
-  autoBtn.textContent = state.autoFish ? '🤖 自動釣り: ON（クールダウン2倍）' : '🤖 自動釣り: OFF';
+  autoBtn.textContent = state.autoFish ? `🤖 自動釣り: ON${isHallOfFame() ? '（ペナルティなし）' : '（クールダウン2倍）'}` : '🤖 自動釣り: OFF';
   autoBtn.classList.toggle('active', state.autoFish);
 }
 
@@ -325,13 +332,22 @@ function toggleAutoFish() {
   if (state.autoFish && !fishing) castRod();
 }
 
+// 手持ちの「種類数」が多いと、グループ化していてもDOM再構築コストが重くなるため
+// デフォルトでは価値の高い順に上限件数だけ表示し、残りは「もっと見る」で展開する。
+const INVENTORY_DISPLAY_LIMIT = 60;
+let inventoryShowAll = false;
+
 function renderHome() {
   const invWrap = document.getElementById('inventory-list');
   invWrap.innerHTML = '';
   if (state.inventory.length === 0) {
     invWrap.innerHTML = '<p class="empty-msg">まだ手持ちの絵文字がいません。海で釣ってこよう！</p>';
   } else {
-    state.inventory.forEach(g => {
+    const sorted = [...state.inventory].sort((a, b) => b.value - a.value);
+    const shouldLimit = !inventoryShowAll && sorted.length > INVENTORY_DISPLAY_LIMIT;
+    const toShow = shouldLimit ? sorted.slice(0, INVENTORY_DISPLAY_LIMIT) : sorted;
+
+    toShow.forEach(g => {
       const card = fishCard(g, { count: g.count, onClick: () => placeFishGroup(g.emoji, g.mutationId) });
       const tag = document.createElement('div');
       tag.className = 'place-tag';
@@ -347,6 +363,20 @@ function renderHome() {
       card.appendChild(sellBtn);
       invWrap.appendChild(card);
     });
+
+    if (shouldLimit) {
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'buy-btn show-more-btn';
+      moreBtn.textContent = `▼ 他${sorted.length - INVENTORY_DISPLAY_LIMIT}種類を表示（動作が重くなる場合があります）`;
+      moreBtn.addEventListener('click', () => { inventoryShowAll = true; renderHome(); });
+      invWrap.appendChild(moreBtn);
+    } else if (inventoryShowAll && sorted.length > INVENTORY_DISPLAY_LIMIT) {
+      const lessBtn = document.createElement('button');
+      lessBtn.className = 'buy-btn show-more-btn';
+      lessBtn.textContent = '▲ 表示を減らす';
+      lessBtn.addEventListener('click', () => { inventoryShowAll = false; renderHome(); });
+      invWrap.appendChild(lessBtn);
+    }
   }
 
   const slotsWrap = document.getElementById('base-slots');

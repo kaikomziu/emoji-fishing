@@ -288,6 +288,7 @@ const THEMES = [
   { id: 'gold',    name: 'ゴールドハウス', icon: '🏆', sea: '#f5c518', seaDark: '#b45309', accent: '#fbbf24' },
   { id: 'rainbow', name: 'レインボーハウス', icon: '🌈', sea: '#ec4899', seaDark: '#7c3aed', accent: '#22d3ee' },
   { id: 'void',    name: 'ヴォイドハウス', icon: '⚫', sea: '#18181b', seaDark: '#000000', accent: '#facc15' },
+  { id: 'prism',   name: 'プリズムハウス', icon: '💎', sea: '#06b6d4', seaDark: '#0e7490', accent: '#e879f9' },
 ];
 
 // 実績定義：条件を満たすと自動解放。一部はテーマ（家の色）を解放する
@@ -369,10 +370,9 @@ const ACHIEVEMENTS = [
   // ---- さらなるリボーン ----
   { id: 'reborn10', icon: '🔁', name: '転生の達人',   desc: '10回リボーンする',
     check: s => (s.rebornCount || 0) >= 10 },
-  { id: 'reborn20', icon: '🌀', name: '無限ループ',   desc: '20回リボーンする',
-    check: s => (s.rebornCount || 0) >= 20 },
-  { id: 'reborn50', icon: '🕳️', name: '輪廻を超えし者', desc: '50回リボーンする',
-    check: s => (s.rebornCount || 0) >= 50 },
+  { id: 'rebornMax', icon: '💎', name: '殿堂入り',    desc: `リボーンを${REBORN_CONFIG.maxRebornCount}回達成する（上限到達・プリズムハウスが解放！）`,
+    check: s => (s.rebornCount || 0) >= REBORN_CONFIG.maxRebornCount,
+    rewardThemeId: 'prism' },
 
   // ---- ショップレベルのさらに上 ----
   { id: 'rod25',  icon: '🎣', name: '名竿の使い手',   desc: '釣り竿レベル25到達',
@@ -436,8 +436,9 @@ const ACHIEVEMENTS = [
 ];
 
 // 更新履歴
-const VERSION = '3.1.0';
+const VERSION = '3.2.0';
 const CHANGELOG = [
+  { version: '3.2.0', date: '2026-08-18', notes: ['リボーン13回（上限）達成で「殿堂入り」を解放。①特別テーマ「💎プリズムハウス」②自動釣りの2倍クールダウンペナルティが消える③トレード画面で他プレイヤーにも💎バッジが表示されるように', 'ホーム/トレードの手持ち表示に上限（60種類）を設定。所持している絵文字の種類が多いと再描画が重くなる問題にさらに対応（「もっと見る」で全件表示も可能）'] },
   { version: '3.1.0', date: '2026-08-18', notes: ['リボーンできる回数の上限を13回に設定しました（上限到達後は永続倍率×7.5・ショップレベル上限140で固定）'] },
   { version: '3.0.1', date: '2026-08-17', notes: ['【重要】手持ちの絵文字が多いとセーブ容量の上限を超えて保存に失敗し、その後の操作（ショップでのアップグレード等）が反映されなくなる不具合を修正', '手持ちの絵文字を「種類ごとの個数」で管理する方式に変更し、大量に釣ってもセーブデータが巨大化しないように', '既存のセーブデータは次回読み込み時に自動で軽量化されます'] },
   { version: '3.0.0', date: '2026-08-17', notes: ['ランキング機能を廃止しました（トレードのオンライン表示・ニックネームはそのまま利用できます）', '実績を16種→56種に大幅増加', '釣れる絵文字を325種→525種に大幅増加（世界の国旗・食べ物・動物・文房具など）'] },
