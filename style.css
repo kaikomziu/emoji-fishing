@@ -99,6 +99,14 @@ h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--sub); }
   display: block; width: 100%; margin-top: 10px; background: #e5f2f8; color: var(--sea-dark);
   box-shadow: none; font-size: 0.85rem;
 }
+
+.rarity-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
+.rarity-filter-btn {
+  --rc: #9ca3af;
+  border: 2px solid var(--rc); border-radius: 999px; padding: 5px 12px;
+  background: #fff; color: var(--rc); font-size: 0.76rem; font-weight: 700; cursor: pointer;
+}
+.rarity-filter-btn.active { background: var(--rc); color: #fff; }
 .fish-grid { display: flex; flex-wrap: wrap; gap: 10px; cursor: pointer; }
 .fish-grid .fish-card:active { transform: scale(0.94); }
 

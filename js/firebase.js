@@ -177,6 +177,7 @@ function renderTrade() {
     ${myBadge}
     <p class="sub-desc">送りたい絵文字を選んでから、オンラインのプレイヤーに「送る」を押してください。拠点に置いていない絵文字のみ送れます。</p>
     <h3>📤 送る絵文字を選ぶ</h3>
+    <div id="trade-filter-bar" class="rarity-filter-bar"></div>
     <div id="trade-inventory" class="fish-grid"></div>
     <h3>🟢 今オンラインのプレイヤー</h3>
     <div id="trade-online-list" class="ranking-list"><p class="empty-msg">読み込み中…</p></div>
@@ -194,16 +195,33 @@ function renderTrade() {
 }
 
 let tradeInventoryShowAll = false;
+let tradeInventoryRarityFilter = 'all';
 
 function renderTradeInventory() {
+  if (typeof renderRarityFilterBar === 'function') {
+    renderRarityFilterBar('trade-filter-bar', tradeInventoryRarityFilter, r => {
+      tradeInventoryRarityFilter = r;
+      tradeInventoryShowAll = false;
+      renderTradeInventory();
+    });
+  }
+
   const wrap = document.getElementById('trade-inventory');
   if (!wrap) return;
   wrap.innerHTML = '';
+  const filtered = tradeInventoryRarityFilter === 'all'
+    ? state.inventory
+    : state.inventory.filter(g => g.rarityId === tradeInventoryRarityFilter);
+
   if (state.inventory.length === 0) {
     wrap.innerHTML = '<p class="empty-msg">送れる絵文字がありません。海で釣ってこよう！</p>';
     return;
   }
-  const sorted = [...state.inventory].sort((a, b) => b.value - a.value);
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<p class="empty-msg">このレアリティの絵文字は持っていません。</p>';
+    return;
+  }
+  const sorted = [...filtered].sort((a, b) => b.value - a.value);
   const limit = (typeof INVENTORY_DISPLAY_LIMIT === 'number') ? INVENTORY_DISPLAY_LIMIT : 60;
   const shouldLimit = !tradeInventoryShowAll && sorted.length > limit;
   const toShow = shouldLimit ? sorted.slice(0, limit) : sorted;

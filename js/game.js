@@ -334,16 +334,52 @@ function toggleAutoFish() {
 
 // 手持ちの「種類数」が多いと、グループ化していてもDOM再構築コストが重くなるため
 // デフォルトでは価値の高い順に上限件数だけ表示し、残りは「もっと見る」で展開する。
+// レアリティで絞り込むこともできる。
 const INVENTORY_DISPLAY_LIMIT = 60;
 let inventoryShowAll = false;
+let inventoryRarityFilter = 'all';
+
+// レアリティ絞り込みバーを描画する（ホーム・トレード共通）。持っていないレアリティのボタンは省く。
+function renderRarityFilterBar(containerId, currentFilter, onSelect) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  const counts = {};
+  let total = 0;
+  state.inventory.forEach(g => {
+    counts[g.rarityId] = (counts[g.rarityId] || 0) + g.count;
+    total += g.count;
+  });
+  let html = `<button class="rarity-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-rarity="all">すべて（${total}）</button>`;
+  RARITIES.forEach(r => {
+    const c = counts[r.id] || 0;
+    if (c === 0) return;
+    html += `<button class="rarity-filter-btn${currentFilter === r.id ? ' active' : ''}" data-rarity="${r.id}" style="--rc:${r.color}">${r.name}（${c}）</button>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.rarity-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => onSelect(btn.dataset.rarity));
+  });
+}
 
 function renderHome() {
+  renderRarityFilterBar('inventory-filter-bar', inventoryRarityFilter, r => {
+    inventoryRarityFilter = r;
+    inventoryShowAll = false;
+    renderHome();
+  });
+
   const invWrap = document.getElementById('inventory-list');
   invWrap.innerHTML = '';
+  const filtered = inventoryRarityFilter === 'all'
+    ? state.inventory
+    : state.inventory.filter(g => g.rarityId === inventoryRarityFilter);
+
   if (state.inventory.length === 0) {
     invWrap.innerHTML = '<p class="empty-msg">まだ手持ちの絵文字がいません。海で釣ってこよう！</p>';
+  } else if (filtered.length === 0) {
+    invWrap.innerHTML = '<p class="empty-msg">このレアリティの絵文字は持っていません。</p>';
   } else {
-    const sorted = [...state.inventory].sort((a, b) => b.value - a.value);
+    const sorted = [...filtered].sort((a, b) => b.value - a.value);
     const shouldLimit = !inventoryShowAll && sorted.length > INVENTORY_DISPLAY_LIMIT;
     const toShow = shouldLimit ? sorted.slice(0, INVENTORY_DISPLAY_LIMIT) : sorted;
 
