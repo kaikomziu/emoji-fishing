@@ -430,6 +430,16 @@ function renderRebornCard() {
   const el = document.getElementById('reborn-card');
   if (!el) return;
   const rc = state.rebornCount || 0;
+  const maxReborn = REBORN_CONFIG.maxRebornCount;
+
+  if (rc >= maxReborn) {
+    el.innerHTML = `
+      <div class="reborn-title">🌟 リボーン <span class="shop-lv">${rc} / ${maxReborn}回目</span></div>
+      <div class="reborn-desc">リボーンの上限（${maxReborn}回）に到達しました。永続倍率は ×${getRebornMultiplier(rc).toFixed(1)}、ショップレベル上限は ${getShopLevelCap(rc)} で固定です。</div>
+    `;
+    return;
+  }
+
   const cost = rebornCost(rc);
   const rarity = rebornRequiredRarity(rc);
   const needCount = rebornRequiredFishCount(rc);
@@ -438,7 +448,7 @@ function renderRebornCard() {
   const okFish = haveCount >= needCount;
   const ready = okCoins && okFish;
   el.innerHTML = `
-    <div class="reborn-title">🌟 リボーン <span class="shop-lv">${rc}回目</span></div>
+    <div class="reborn-title">🌟 リボーン <span class="shop-lv">${rc} / ${maxReborn}回目</span></div>
     <div class="reborn-desc">ショップ強化をリセットする代わりに、永続コイン倍率とレベル上限をアップします。</div>
     <div class="reborn-stats">
       <div>永続倍率: <b>×${getRebornMultiplier(rc).toFixed(1)}</b> → <b>×${getRebornMultiplier(rc + 1).toFixed(1)}</b></div>
@@ -456,6 +466,10 @@ function renderRebornCard() {
 
 function performReborn() {
   const rc = state.rebornCount || 0;
+  if (rc >= REBORN_CONFIG.maxRebornCount) {
+    flashMessage('リボーンの上限に達しています');
+    return;
+  }
   const cost = rebornCost(rc);
   const rarity = rebornRequiredRarity(rc);
   const needCount = rebornRequiredFishCount(rc);
